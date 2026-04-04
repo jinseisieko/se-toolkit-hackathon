@@ -4,13 +4,65 @@ A real-time server security monitor that parses authentication logs, auto-blocks
 
 ---
 
+## Demo
+
+<!-- Add screenshots here -->
+<!-- Example: Screenshot of the web dashboard showing the alerts table -->
+<!-- Example: Screenshot of the Telegram bot receiving a real-time alert -->
+
+---
+
+## Context
+
+### End Users
+
+System administrators and DevOps engineers who manage Linux servers and need visibility into authentication-related security threats without setting up complex SIEM tools.
+
+### Problem
+
+Servers are constantly probed by automated brute-force attacks targeting SSH and other authentication services. Admins often don't notice these attacks until it's too late, and existing tools like fail2ban provide no real-time visibility or remote alerting.
+
+### Solution
+
+LogSentinel watches authentication logs in real time, automatically blocks malicious IPs, and sends instant alerts to your Telegram phone — plus a simple web dashboard for reviewing incidents and managing blocks.
+
+---
+
 ## Features
 
-- **Threat Detection** — Parses `/var/log/auth.log` for brute-force SSH attempts and suspicious activity
-- **Automated Response** — Blocks malicious IPs via `ufw`/`iptables`
-- **Telegram Alerts** — Real-time notifications and admin commands (`/status`, `/unblock <IP>`, `/stats`)
-- **Web Dashboard** — View alerts, blocked IPs, attack timeline, and configure settings
-- **Test Mode** — Safely develop and demo with restricted access and no destructive actions
+### Implemented (Version 1)
+
+- **Log Parsing** — Tails `/var/log/auth.log` and detects failed SSH login attempts using regex
+- **Threshold Detection** — Aggregates failures per IP; triggers an alert after a configurable threshold (default: 5 attempts)
+- **Auto-Block** — Blocks offending IPs via `ufw` / `iptables`
+- **SQLite Database** — Stores alerts, blocked IPs, and bot interaction logs (Peewee ORM)
+- **Web Dashboard** — View real-time alert feed, blocked IP table, and basic stats
+- **Telegram Bot** — Receive alerts and run `/start`, `/status` commands
+
+### Planned (Version 2)
+
+- **Telegram Admin Commands** — `/unblock <IP>`, `/stats` with detailed attack breakdown
+- **Attack Timeline View** — Visual timeline of attacks on the web dashboard
+- **Geo-IP Enrichment** — Show attacker location on the dashboard
+- **Test Mode** — Restrict bot access to a specific chat ID, disable destructive commands for safe development
+- **Docker Compose Deployment** — All services containerized and deployable with one command
+
+---
+
+## Usage
+
+### Telegram Bot
+
+| Command | Description |
+|---------|-------------|
+| `/start` | Initialize the bot |
+| `/status` | Show active and blocked IP counts |
+| `/stats` | View detailed attack statistics |
+| `/unblock <IP>` | Unblock a specific IP |
+
+### Web Dashboard
+
+Navigate to `http://<VM_IP>:5000` to view the dashboard, browse alerts, see blocked IPs, and configure the block threshold.
 
 ---
 
@@ -58,59 +110,55 @@ A real-time server security monitor that parses authentication logs, auto-blocks
 
 ---
 
-## Quick Start
+## Deployment
 
-### Prerequisites
+### Requirements
 
-- Ubuntu VM (or any Linux host)
-- Docker & Docker Compose
-- A Telegram bot token (from [@BotFather](https://t.me/BotFather))
+- **OS:** Ubuntu 24.04 (or any recent Ubuntu/Debian-based system)
+- **Installed on VM:**
+  - Docker & Docker Compose
+  - `sudo` access (for log reading and firewall rules)
+  - A Telegram bot token from [@BotFather](https://t.me/BotFather)
 
-### Setup
+### Step-by-Step
 
-1. **Clone the repo**
+1. **Clone the repository**
    ```bash
-   git clone <repo-url>
+   git clone https://github.com/<your-username>/se-toolkit-hackathon.git
    cd se-toolkit-hackathon
    ```
 
-2. **Configure environment**
+2. **Create data directory**
    ```bash
-   cp .env.example .env
-   # Edit .env with your bot token and chat ID
+   mkdir -p data
    ```
 
-3. **Run**
+3. **Configure environment**
+   ```bash
+   cp .env.example .env
+   ```
+   Edit `.env`:
+   ```env
+   BOT_TOKEN=your:telegram_bot_token
+   TEST_MODE=true
+   TEST_CHAT_ID=your_telegram_chat_id
+   BLOCK_THRESHOLD=5
+   DB_PATH=/app/data/sentinel.db
+   ```
+
+4. **Start services**
    ```bash
    docker compose up -d --build
    ```
 
-4. **Access**
-   - Web UI: `http://<VM_IP>:5000`
-   - Telegram: send `/start` to your bot
+5. **Access the product**
+   - **Web Dashboard:** `http://<VM_IP>:5000`
+   - **Telegram Bot:** Send `/start` to your bot
 
----
-
-## Configuration
-
-| Variable | Description |
-|----------|-------------|
-| `BOT_TOKEN` | Telegram bot token |
-| `TEST_MODE` | `true` to restrict access to `TEST_CHAT_ID` only |
-| `TEST_CHAT_ID` | Your Telegram chat ID (required when `TEST_MODE=true`) |
-| `BLOCK_THRESHOLD` | Number of failed attempts before blocking (default: `5`) |
-| `DB_PATH` | Path to SQLite database (default: `/app/data/sentinel.db`) |
-
----
-
-## Telegram Commands
-
-| Command | Description |
-|---------|-------------|
-| `/start` | Initialize bot |
-| `/status` | Show active and blocked IP counts |
-| `/stats` | View detailed attack statistics |
-| `/unblock <IP>` | Unblock a specific IP |
+6. **Switch to production** (optional)
+   - Set `TEST_MODE=false` in `.env`
+   - Add `--cap-add=NET_ADMIN` to the `worker` service in `docker-compose.yml` to enable auto-blocking via `ufw`/`iptables`
+   - Restart: `docker compose down && docker compose up -d`
 
 ---
 
@@ -129,14 +177,6 @@ A real-time server security monitor that parses authentication logs, auto-blocks
 ├── Dockerfile
 ├── docker-compose.yml
 ├── .env.example
+├── LICENSE             # MIT License
 └── README.md
 ```
-
----
-
-## Why This Project?
-
-- **Cybersecurity-focused** — Real log analysis, threat detection, and automated response
-- **Single VM** — Everything runs on one machine, no cloud dependencies
-- **Practical & Demoable** — Easy to demonstrate with simulated attacks
-- **Extensible** — Start with SSH brute-force, expand to web logs, API abuse, threat-feed enrichment
