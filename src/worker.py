@@ -247,11 +247,12 @@ class Worker:
             return Response(metrics.render(), mimetype="text/plain")
 
         def run_web() -> None:
+            import werkzeug.serving
+            werkzeug.serving._log = lambda *a: None  # silence Flask logs
             app.run(
                 host=self.config.web_host,
                 port=self.config.web_port,
                 use_reloader=False,
-                log_level="warning",
             )
 
         web_thread = threading.Thread(target=run_web, daemon=True)
