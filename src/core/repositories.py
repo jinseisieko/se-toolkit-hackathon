@@ -50,6 +50,16 @@ class AlertRepository(ABC):
         """Fetch a single alert by ID."""
         ...
 
+    @abstractmethod
+    def mark_ip_blocked(self, ip: str) -> None:
+        """Mark an IP as blocked (create alert if not exists)."""
+        ...
+
+    @abstractmethod
+    def mark_ip_unblocked(self, ip: str) -> None:
+        """Mark all alerts for an IP as unblocked."""
+        ...
+
 
 class PeeweeAlertRepository(AlertRepository):
     """Peewee-backed implementation of AlertRepository.
@@ -99,6 +109,20 @@ class PeeweeAlertRepository(AlertRepository):
         except AlertModel.DoesNotExist:
             return None
         return self._to_entity(record)
+
+    def mark_ip_blocked(self, ip: str) -> None:
+        from src.infrastructure.models import Alert as AlertModel
+
+        AlertModel.update(blocked=True).where(
+            AlertModel.ip == ip
+        ).execute()
+
+    def mark_ip_unblocked(self, ip: str) -> None:
+        from src.infrastructure.models import Alert as AlertModel
+
+        AlertModel.update(blocked=False).where(
+            AlertModel.ip == ip
+        ).execute()
 
     # ── Internal ──────────────────────────────────────────────
 

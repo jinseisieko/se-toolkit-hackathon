@@ -116,6 +116,7 @@ class Config:
         self.web_host = os.getenv("WEB_HOST", "0.0.0.0")
         self.web_port = int(os.getenv("WEB_PORT", "5000"))
         self.cli_mode = os.getenv("CLI_MODE", "true").lower() == "true"
+        self.api_token = os.getenv("API_TOKEN") or None
 
 
 # ── Worker ────────────────────────────────────────────────────
@@ -243,7 +244,7 @@ class Worker:
         cmd_handler = create_command_handler(block_svc, alert_repo)
 
         # 12. Web dashboard
-        app = create_app(alert_repo=alert_repo)
+        app = create_app(alert_repo=alert_repo, api_token=self.config.api_token)
         app.config["TESTING"] = True
 
         # Add /metrics endpoint
