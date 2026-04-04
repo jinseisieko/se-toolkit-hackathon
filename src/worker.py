@@ -196,15 +196,20 @@ class Worker:
             # Block
             block_svc.handle_event(event)
             metrics.record_block(
-                IPv4Address(event.ip) if ":" not in event.ip else event.ip,
+                event.ip,
                 strategy.__class__.__name__,
                 f"{event.service} brute-force: {event.attempt_count}",
             )
 
             # Enrich
+            try:
+                ip_obj = IPv4Address(event.ip)
+            except ValueError:
+                ip_obj = IPv4Address("127.0.0.1")
+
             enriched = EnrichedEvent.from_parsed_entry(
                 ParsedEntry(
-                    ip=event.ip if ":" not in event.ip else IPv4Address("127.0.0.1"),
+                    ip=ip_obj,
                     timestamp=event.timestamp,
                     service=event.service,
                     event_type="failed_auth",
@@ -272,6 +277,7 @@ class Worker:
         parser = registry.create("ssh_auth", {
             "log_path": self.config.log_path,
         })
+        assert isinstance(parser, SSHAuthPlugin), "Expected SSHAuthPlugin"
 
         def on_entry(entry: ParsedEntry) -> None:
             start = time.monotonic()

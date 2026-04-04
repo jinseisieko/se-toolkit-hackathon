@@ -10,9 +10,10 @@ from __future__ import annotations
 import ipaddress
 import logging
 import re
+import subprocess
 from datetime import datetime, timezone
 from ipaddress import IPv4Address, IPv6Address
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from src.core.plugins.parser_plugin import (
     DetectionRule,
@@ -190,3 +191,41 @@ class SSHAuthPlugin(LogParserPlugin):
                 "Failed to parse timestamp %r, using current time", ts_str
             )
             return datetime.now(timezone.utc)
+
+    def process_stream(
+        self,
+        file_path: str,
+        callback: Callable[[ParsedEntry], None],
+    ) -> None:
+        """Tail a log file and call *callback* for each parsed entry.
+
+        Uses ``tail -F`` to follow log rotation.
+
+        Args:
+            file_path: Path to the log file to monitor.
+            callback: Called with each ``ParsedEntry`` that matches.
+        """
+        logger.info("Starting log tail of %s", file_path)
+        try:
+            proc = subprocess.Popen(
+                ["tail", "-F", file_path],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+        except (FileNotFoundError, PermissionError) as exc:
+            logger.error("Cannot open %s: %s", file_path, exc)
+            return
+
+        assert proc.stdout is not None
+        try:
+            for raw_line in proc.stdout:
+                entry = self.parse_line(raw_line)
+                if entry is not None:
+                    callback(entry)
+        except KeyboardInterrupt:
+            logger.info("Log tail interrupted")
+        finally:
+            proc.terminate()
+            proc.wait(timeout=5)
+            logger.info("Log tail stopped for %s", file_path)

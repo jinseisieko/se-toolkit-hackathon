@@ -46,7 +46,9 @@ class MetricsCollector:
             event.service, channel, event.ip,
         )
 
-    def record_block(self, ip: IPv4Address, strategy: str, reason: str) -> None:
+    def record_block(
+        self, ip: IPv4Address | str, strategy: str, reason: str
+    ) -> None:
         """Increment block counter for the given strategy.
 
         Args:
