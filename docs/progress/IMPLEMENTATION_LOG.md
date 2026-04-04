@@ -313,13 +313,18 @@ Tracks progress through the V1 implementation workflow defined in `task_version_
 | 1. LogParserPlugin + ParserRegistry | 11 | ✅ |
 | 2. SSHAuthPlugin migration | 17 | ✅ |
 | 3. GeoIPEnricher + MaxMind adapter | 8 | ✅ |
-| 4. AlertChannel + ConsoleChannel | 3 | ✅ |
-| 5. MetricsCollector + render() | 3 | ✅ |
-| 6. Worker entrypoint + deployment | — | ✅ |
+| 4. AlertChannel + ConsoleChannel | 0 | ✅ |
+| 5. MetricsCollector + /metrics endpoint | 0 | ✅ |
+| 6. Worker entrypoint + Docker Compose deployment | — | ✅ |
 | 7. API v2 auth + RBAC | — | Pending |
 | 8. Attack Map component | — | Pending |
-| **V2 Total** | **28** | 🔄 In progress |
+| **V2 Total** | **36** | 🔄 In progress |
 
-### Grand Total: **102 tests passing**, `mypy --strict` clean
+### Grand Total: **110 tests passing**, `mypy --strict` clean
 
-All 8 V1 services complete. V2: plugin system + SSH plugin verified.
+### Deployment
+
+- **Deployed:** `se-toolkit-vm` via Docker Compose
+- **Dashboard:** `http://10.93.25.13:5000`
+- **Container:** `logsentinel` — tails real `/var/log/auth.log`
+- **Verified:** Simulated SSH attack detected, alerted, blocked, persisted, and displayed on dashboard

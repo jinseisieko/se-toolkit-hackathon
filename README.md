@@ -1,14 +1,18 @@
 # LogSentinel
 
-A real-time server security monitor that parses authentication logs, auto-blocks malicious IPs, and sends instant Telegram alerts with a web dashboard for incident tracking.
+A real-time server security monitor that parses authentication logs, auto-blocks malicious IPs, enriches alerts with GeoIP data, and serves a web dashboard for incident tracking.
 
 ---
 
-## Demo
+## Quick Start
 
-<!-- Add screenshots here -->
-<!-- Example: Screenshot of the web dashboard showing the alerts table -->
-<!-- Example: Screenshot of the Telegram bot receiving a real-time alert -->
+```bash
+git clone https://github.com/jinseisieko/se-toolkit-hackathon.git
+cd se-toolkit-hackathon
+docker compose up --build -d
+```
+
+Dashboard: **http://\<VM_IP\>:5000**
 
 ---
 
@@ -16,38 +20,48 @@ A real-time server security monitor that parses authentication logs, auto-blocks
 
 ### End Users
 
-System administrators and DevOps engineers who manage Linux servers and need visibility into authentication-related security threats without setting up complex SIEM tools.
+System administrators and DevOps engineers who manage Linux servers and need real-time visibility into authentication-related security threats without setting up complex SIEM tools.
 
 ### Problem
 
-Servers are constantly probed by automated brute-force attacks targeting SSH and other authentication services. Admins often don't notice these attacks until it's too late, and existing tools like fail2ban provide no real-time visibility or remote alerting.
+Servers are constantly probed by automated brute-force attacks targeting SSH. Admins often don't notice until it's too late, and existing tools like fail2ban provide no web visibility or structured alerting.
 
 ### Solution
 
-LogSentinel watches authentication logs in real time, automatically blocks malicious IPs, and sends instant alerts to your Telegram phone — plus a simple web dashboard for reviewing incidents and managing blocks.
+LogSentinel tails `/var/log/auth.log` in real time, detects brute-force patterns, enriches alerts with geographic data, and surfaces everything through a web dashboard with JSON API and Prometheus metrics.
 
 ---
 
 ## Features
 
-### Implemented (Version 1)
+- **SSH Log Parsing** — Monitors `/var/log/auth.log` for failed SSH login attempts (password + publickey, valid + invalid users)
+- **Sliding-Window Detection** — Per-IP threshold aggregation; triggers after N failures within a configurable time window
+- **Auto-Blocking** — Blocks offending IPs via `ufw` (production) or logs-only mode (test)
+- **GeoIP Enrichment** — Adds country/city metadata to alerts via mock or MaxMind provider
+- **SQLite Database** — Persists alerts and blocked IPs with Repository pattern for future PostgreSQL migration
+- **Web Dashboard** — Dark-themed UI with stats cards, alert table, and live polling
+- **JSON API** — `/api/alerts`, `/api/blocked` endpoints for programmatic access
+- **Prometheus Metrics** — `/metrics` endpoint with alert counts, block counts, processing times
+- **Plugin System** — `LogParserPlugin` ABC + `ParserRegistry` for adding new log sources
+- **CLI Test Mode** — Interactive stdin-based command interface for safe development
+- **Docker Compose** — Single container deployment, monitors host auth.log via volume mount
 
-- **SSH Log Parsing** — Tails `/var/log/auth.log` and detects failed SSH login attempts (password + publickey)
-- **Threshold Detection** — Sliding-window aggregation per IP; publishes events when configurable threshold is breached
-- **Auto-Block** — Blocks offending IPs via `ufw` (production) or log-only mode (test)
-- **SQLite Database** — Stores alerts and blocked IPs (Peewee ORM, Repository pattern)
-- **Web Dashboard** — Dark-themed UI with alert table, stats cards, and JSON API (`/api/alerts`, `/api/blocked`)
-- **Telegram Bot** — `/start`, `/status`, `/unblock <IP>`, `/block <IP>` with test mode chat restriction
-- **CLI Test Mode** — Interactive stdin-based command interface for safe development without Telegram or firewall side effects
-- **Design Patterns** — Observer, Strategy, Repository, Factory, Adapter, Template Method, Application Factory
+---
 
-### Planned (Version 2)
+## How Alerts Work
 
-- **Attack Timeline View** — Visual timeline of attacks on the web dashboard
-- **Geo-IP Enrichment** — Show attacker location on the dashboard
-- **Additional Log Parsers** — Apache, Nginx, custom formats
-- **Advanced Alert Channels** — Slack, email, webhook
-- **Docker Compose Deployment** — All services containerized and deployable with one command
+An alert triggers when:
+1. **N failed SSH attempts** (default: 5) from the **same IP** within a **5-minute sliding window**
+2. The IP is automatically blocked (or logged in test mode)
+3. Alert is persisted to the database and displayed on the dashboard
+4. Metrics are updated for Prometheus scraping
+5. Console alert is emitted with severity, location, and timestamp
+
+```
+tail /var/log/auth.log → parse SSH failures → count per IP
+  → threshold breached → SecurityEvent published
+    → enrich with GeoIP → block IP → persist to DB → console alert
+```
 
 ---
 
@@ -57,19 +71,24 @@ LogSentinel watches authentication logs in real time, automatically blocks malic
 ┌─────────────────────────────────────────────────┐
 │                   Ubuntu VM                     │
 │                                                 │
-│  ┌──────────┐   ┌──────────┐   ┌─────────────┐  │
-│  │  Flask   │   │  Worker  │   │  Telegram   │  │
-│  │  (Web)   │   │ (Parser) │   │    Bot      │  │
-│  └────┬─────┘   └────┬─────┘   └──────┬──────┘  │
-│       │              │                 │         │
-│       └──────────────┼─────────────────┘         │
-│                      │                           │
-│              ┌───────▼───────┐                   │
-│              │  SQLite (DB)  │                   │
-│              └───────────────┘                   │
+│  ┌───────────────────────────────────────────┐  │
+│  │          LogSentinel Container            │  │
+│  │                                           │  │
+│  │  ┌─────────┐  ┌──────────┐  ┌─────────┐  │  │
+│  │  │  Flask  │  │  Worker  │  │ Metrics │  │  │
+│  │  │ (Web)   │  │ (Parser) │  │ (/metrics)│ │  │
+│  │  └────┬────┘  └────┬─────┘  └────┬────┘  │  │
+│  │       │             │              │       │  │
+│  │       └─────────────┼──────────────┘       │  │
+│  │                     │                      │  │
+│  │            ┌────────▼────────┐             │  │
+│  │            │  SQLite (DB)    │             │  │
+│  │            │  /app/data/     │             │  │
+│  │            └─────────────────┘             │  │
+│  └───────────────────────────────────────────┘  │
 │                                                 │
-│  Reads: /var/log/auth.log                       │
-│  Blocks: ufw / iptables (or NoOp for testing)   │
+│  Volume: /var/log/auth.log → /var/log/auth.log  │
+│  Port:   0.0.0.0:5000 → 5000                    │
 └─────────────────────────────────────────────────┘
 ```
 
@@ -77,53 +96,89 @@ LogSentinel watches authentication logs in real time, automatically blocks malic
 
 | Pattern | Component | Benefit |
 |---------|-----------|---------|
-| **Observer** | EventBroker → Detector, BlockService, Telegram | Decouples detection from actions; easy to add new responders |
-| **Strategy** | FirewallStrategy: UFWStrategy / NoOpStrategy | Swap blocking mechanisms without changing core logic |
-| **Factory** | CommandFactory creates handlers from command strings | Centralized routing; easy to extend with new commands |
-| **Repository** | AlertRepository ABC → PeeweeAlertRepository | Isolates ORM; simplifies testing and future DB migrations |
-| **Adapter** | TelegramInputAdapter, CLIInputAdapter | Same handlers, different input sources (test mode ready) |
-| **Template Method** | BaseLogParser → SSHAuthLogParser | Standardize log parsing while allowing format-specific rules |
-| **Application Factory** | create_app(alert_repo) → Flask app | Testable with in-memory DB, swappable databases in prod |
+| **Observer** | EventBroker → Detector, BlockService, Alert Channel | Decouples detection from actions |
+| **Strategy** | FirewallStrategy (UFW/NoOp), GeoIP Provider, Enricher | Swap implementations without code changes |
+| **Factory** | ParserRegistry, CommandFactory | Dynamic plugin discovery and instantiation |
+| **Repository** | AlertRepository ABC → Peewee implementation | Isolates ORM, enables DB migration |
+| **Adapter** | TelegramInputAdapter, CLIInputAdapter, ConsoleChannel | Same logic, different I/O protocols |
+| **Template Method** | LogParserPlugin ABC → SSHAuthPlugin | Standardize parsers, add formats easily |
+| **Application Factory** | create_app(repo) → Flask app | Testable, injectable dependencies |
 
 ---
 
-## Usage
+## Deployment
 
-### Telegram Bot
+### Requirements
 
-| Command | Description |
-|---------|-------------|
-| `/start` | Welcome message with available commands |
-| `/status` | Show active and blocked IP counts |
-| `/unblock <IP>` | Unblock a specific IP |
-| `/block <IP> [reason]` | Manually block an IP |
+- **OS:** Ubuntu 22.04/24.04
+- **Installed:** Docker & Docker Compose
+- **Access:** Read access to `/var/log/auth.log`
 
-### CLI Test Mode
+### Deploy
 
 ```bash
-# Run the worker with NoOpStrategy (test mode)
-# Then in another terminal, interact via stdin:
-# ❯ /status
-# ✅ Active: 5 | Blocked: 2
-# ❯ /unblock 192.0.2.1
-# ✅ Unblocked 192.0.2.1
-# ❯ quit
+git clone https://github.com/jinseisieko/se-toolkit-hackathon.git
+cd se-toolkit-hackathon
+cp .env.example .env   # customize if needed
+docker compose up --build -d
 ```
 
-### Web Dashboard
+### Manage
 
-Navigate to `http://<VM_IP>:5000` to view the dashboard. The JSON API is available at `/api/alerts` and `/api/blocked`.
+```bash
+docker compose logs -f          # Follow logs
+docker compose down             # Stop
+docker compose restart          # Restart
+docker compose up --build -d    # Update to latest code
+```
+
+### Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DB_PATH` | `/app/data/sentinel.db` | SQLite database path inside container |
+| `LOG_PATH` | `/var/log/auth.log` | Host log file to monitor |
+| `BLOCK_THRESHOLD` | `5` | Failed attempts before alert triggers |
+| `FIREWALL_STRATEGY` | `noop` | `noop` (log only) or `ufw` (real blocking) |
+| `GEOIP_PROVIDER` | `mock` | `mock` (deterministic test data) or `maxmind` (requires .mmdb) |
+| `WEB_PORT` | `5000` | Dashboard port |
+| `CLI_MODE` | `false` | Enable interactive stdin commands |
+| `TEST_MODE` | `true` | Restrict destructive actions |
 
 ---
 
-## Stack
+## API Endpoints
 
-- **Language:** Python 3.11+
-- **Web Framework:** Flask + Jinja2
-- **ORM / DB:** Peewee + SQLite
-- **Telegram Bot:** `python-telegram-bot` (v20+)
-- **Testing:** pytest + pytest-asyncio, in-memory SQLite
-- **Type Checking:** mypy --strict
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/` | GET | Web dashboard (HTML) |
+| `/api/alerts` | GET | Recent alerts as JSON (limit 50) |
+| `/api/blocked` | GET | Blocked IPs as JSON |
+| `/metrics` | GET | Prometheus-format metrics |
+
+### Example Response
+
+```json
+GET /api/alerts
+[
+  {
+    "ip": "198.51.100.77",
+    "attempts": 5,
+    "service": "ssh",
+    "first_seen": "2026-04-04T10:51:08+00:00",
+    "last_seen": "2026-04-04T10:51:08+00:00",
+    "blocked": false
+  }
+]
+```
+
+### Example Metrics
+
+```
+logsentinel_alerts_total{service="ssh"} 1
+logsentinel_blocks_total{strategy="NoOpStrategy"} 1
+logsentinel_parse_duration_seconds{parser="ssh_auth",quantile="avg"} 0.005155
+```
 
 ---
 
@@ -132,61 +187,47 @@ Navigate to `http://<VM_IP>:5000` to view the dashboard. The JSON API is availab
 ```
 src/
 ├── core/                          # Domain logic (patterns, ABCs)
-│   ├── events.py                  # EventBroker, SecurityEvent (Observer)
+│   ├── plugins/                   # Plugin system (V2)
+│   │   ├── parser_plugin.py       # LogParserPlugin ABC, ParsedEntry
+│   │   └── registry.py            # ParserRegistry (Factory)
+│   ├── enrichment/                # Enrichment pipeline (V2)
+│   │   └── base.py                # Enricher ABC, EnrichedEvent, GeoLocation
+│   ├── alerting/                  # Alert channels (V2)
+│   │   └── channel.py             # AlertChannel ABC
+│   ├── observability/             # Metrics (V2)
+│   │   └── metrics.py             # MetricsCollector (Prometheus format)
+│   ├── events.py                  # EventBroker (Observer)
 │   ├── detector.py                # ThresholdDetector (sliding window)
 │   ├── blocking.py                # FirewallStrategy ABC (Strategy)
-│   ├── repositories.py            # Alert dataclass, AlertRepository ABC
+│   ├── repositories.py            # AlertRepository ABC
 │   └── services/
 │       └── block_service.py       # BlockService + BlockRepository ABC
 ├── adapters/                      # External integrations
+│   ├── parsers/plugins/
+│   │   └── ssh_auth.py            # SSHAuthPlugin (Template Method)
 │   ├── firewall/
 │   │   ├── ufw.py                 # UFWStrategy (production)
 │   │   └── noop.py                # NoOpStrategy (test mode)
-│   ├── parsers/
-│   │   └── ssh_auth.py            # SSHAuthLogParser (Template Method)
-│   ├── log_tail.py                # BaseLogParser + ParsedEntry
+│   ├── geoip/
+│   │   └── geo_ip.py              # GeoIPEnricher (mock + MaxMind)
+│   ├── alerting/
+│   │   └── console.py             # ConsoleChannel (CLI alerts)
 │   └── telegram.py                # TelegramInputAdapter
-├── infrastructure/                # DB, models, config
-│   ├── db.py                      # init_database() helper
-│   └── models.py                  # Peewee models (Alert, BlockedIP)
-├── interfaces/                    # CLI, Telegram, Web entrypoints
+├── infrastructure/                # Database
+│   ├── db.py                      # init_database()
+│   └── models.py                  # Peewee models
+├── interfaces/                    # Entry points
 │   ├── commands/
-│   │   ├── handler.py             # CommandHandler, CommandContext
-│   │   ├── cli.py                 # CLIInputAdapter (stdin reader)
+│   │   ├── handler.py             # CommandHandler
+│   │   ├── cli.py                 # CLIInputAdapter
 │   │   └── factory.py             # create_command_handler()
 │   └── web/
-│       ├── app.py                 # Flask application factory
-│       ├── templates/
-│       │   └── dashboard.html     # Jinja2 dashboard
-│       └── static/
-│           └── style.css          # Dark theme
+│       ├── app.py                 # Flask app factory
+│       ├── templates/dashboard.html
+│       └── static/style.css
 ├── utils/
 │   └── validation.py              # IP validator
-tests/
-├── conftest.py
-└── unit/
-    ├── test_events.py             # EventBroker (6 tests)
-    ├── test_detector.py           # ThresholdDetector (6 tests)
-    ├── test_blocking.py           # FirewallStrategy (12 tests)
-    ├── test_block_service.py      # BlockService (6 tests)
-    ├── test_repositories.py       # PeeweeAlertRepository (8 tests)
-    ├── test_command_handler.py    # CommandHandler + CLI (11 tests)
-    ├── test_telegram_adapter.py   # TelegramInputAdapter (7 tests)
-    ├── test_parsers.py            # SSHAuthLogParser (11 tests)
-    └── test_web_dashboard.py      # Flask dashboard (7 tests)
-docs/
-├── progress/
-│   └── IMPLEMENTATION_LOG.md      # Per-service implementation log
-└── services/                      # Per-service documentation
-    ├── README.md                  # Index + wiring guide
-    ├── 01-event-broker/
-    ├── 02-threshold-detector/
-    ├── 03-firewall-strategy/
-    ├── 04-alert-repository/
-    ├── 05-command-handler/
-    ├── 06-telegram-adapter/
-    ├── 07-ssh-log-parser/
-    └── 08-flask-dashboard/
+└── worker.py                      # Main entrypoint — wires all services
 ```
 
 ---
@@ -195,37 +236,22 @@ docs/
 
 | Metric | Value |
 |--------|-------|
-| **Unit tests** | 74 passing |
-| **Type checking** | mypy --strict clean (28 source files) |
-| **Services implemented** | 8/8 |
-| **Design patterns used** | 7 |
+| **Unit tests** | 110 passing |
+| **Type checking** | mypy --strict clean |
+| **Linting** | flake8 clean |
+| **Source files** | 40+ |
+| **Design patterns** | 7 |
 
----
-
-## Development
-
-### Setup
-
-```bash
-git clone https://github.com/<your-username>/se-toolkit-hackathon.git
-cd se-toolkit-hackathon
-python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
-```
-
-### Run Tests
+### Test
 
 ```bash
 pytest tests/unit/ -v
-```
-
-### Type Check
-
-```bash
 mypy src/ --strict
 ```
 
-### Service Documentation
+---
 
-Per-service documentation is in [`docs/services/`](docs/services/README.md).
-Implementation progress is tracked in [`docs/progress/IMPLEMENTATION_LOG.md`](docs/progress/IMPLEMENTATION_LOG.md).
+## Documentation
+
+- **Per-service docs:** [`docs/services/`](docs/services/README.md)
+- **Implementation log:** [`docs/progress/IMPLEMENTATION_LOG.md`](docs/progress/IMPLEMENTATION_LOG.md)
