@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from ipaddress import IPv4Address
+from ipaddress import IPv4Address, IPv6Address
 from typing import Any, Dict, List, Optional
 
 
@@ -48,7 +48,7 @@ class ParsedEntry:
     """Normalized output from any log parser plugin.
 
     Attributes:
-        ip: Source IPv4 address of the event.
+        ip: Source IP address of the event (IPv4 or IPv6).
         timestamp: When the event occurred (UTC).
         service: The service that generated the event, e.g. ``ssh``, ``nginx``.
         user: Targeted username if available.
@@ -57,7 +57,7 @@ class ParsedEntry:
         meta: Extensible plugin-specific metadata.
     """
 
-    ip: IPv4Address
+    ip: IPv4Address | IPv6Address
     timestamp: datetime
     service: str
     event_type: str
