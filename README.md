@@ -71,18 +71,18 @@ tail /var/log/auth.log → parse SSH failures → count per IP
 
 ```
 ┌───────────────────────────────────────────────────┐
-│                  Ubuntu VM                         │
-│                                                    │
+│                  Ubuntu VM                        │
+│                                                   │
 │  ┌─────────────────────────────────────────────┐  │
-│  │         docker compose                       │  │
-│  │                                              │  │
-│  │  worker ──writes──┐                          │  │
-│  │                   ▼                           │  │
-│  │  web    ◄─reads── SQLite ◄─polls── telegram  │  │
-│  │  ▲                                             │  │
-│  │  │ calls REST API ────────────────────┘       │  │
+│  │         docker compose                      │  │
+│  │                                             │  │
+│  │  worker ───────┐                            │  │
+│  │                ▼                            │  │
+│  │  web    ◄─── SQLite ◄─── telegram           │  │
+│  │   ▲                           |             │  │
+│  │   │ ──────────────────────────┘             │  │
 │  └─────────────────────────────────────────────┘  │
-│                                                    │
+│                                                   │
 │  Volume: /var/log/auth.log → worker container     │
 │  Volume: ./data → shared SQLite (all containers)  │
 │  Port:   0.0.0.0:5000 → 5000 (web)                │
