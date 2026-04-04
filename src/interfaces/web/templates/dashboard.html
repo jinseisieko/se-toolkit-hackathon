@@ -98,43 +98,22 @@
         </p>
     </footer>
 
+    {# Blocked IPs data — safe: rendered server-side from DB, auto-escaped by Jinja2 #}
+    <script id="blocked-init" type="application/json">
+    [
+    {% for alert in alerts %}
+    {% if alert.blocked %}
+        {"ip": {{ alert.ip | tojson }}, "attempts": {{ alert.attempts }}, "service": {{ alert.service | tojson }}},
+    {% endif %}
+    {% endfor %}
+    ]
+    </script>
+
     <script>
-    // ── Token Obfuscation ─────────────────────────────────
-
-    // Simple XOR-based obfuscation to hide token from casual
-    // localStorage inspection.  Not cryptographically secure —
-    // its purpose is to prevent shoulder-surfing / DevTools peek.
-    var _OBF_KEY = 0x5a;
-
-    function _xor(str) {
-        var out = '';
-        for (var i = 0; i < str.length; i++) {
-            out += String.fromCharCode(str.charCodeAt(i) ^ _OBF_KEY);
-        }
-        return out;
-    }
-
-    function encodeToken(raw) {
-        // XOR each char, then base64-encode
-        return btoa(_xor(raw));
-    }
-
-    function decodeToken(encoded) {
-        try {
-            return _xor(atob(encoded));
-        } catch (e) {
-            // Corrupt data — clear and return empty
-            localStorage.removeItem('logsentinel_token');
-            return '';
-        }
-    }
-
-    // ── Token Management ──────────────────────────────────
+    // ── Token Management (plain localStorage, no false-security obfuscation) ─
 
     function getToken() {
-        var encoded = localStorage.getItem('logsentinel_token');
-        if (!encoded) return '';
-        return decodeToken(encoded);
+        return localStorage.getItem('logsentinel_token') || '';
     }
 
     function saveToken() {
@@ -142,7 +121,7 @@
         var status = document.getElementById('token-status');
         var token = input.value.trim();
         if (token) {
-            localStorage.setItem('logsentinel_token', encodeToken(token));
+            localStorage.setItem('logsentinel_token', token);
             status.textContent = 'Saved';
             setTimeout(function() { status.textContent = ''; }, 2000);
         } else {
@@ -218,6 +197,91 @@
         if (result) refreshDashboard();
     }
 
+    // ── Safe DOM helpers (no innerHTML) ───────────────────
+
+    function esc(text) {
+        var el = document.createElement('span');
+        el.textContent = text;
+        return el.innerHTML;
+    }
+
+    function buildAlertRow(a) {
+        var tr = document.createElement('tr');
+        tr.setAttribute('data-ip', a.ip);
+        tr.setAttribute('data-blocked', a.blocked);
+
+        // IP cell — colorized
+        var tdIp = document.createElement('td');
+        var code = document.createElement('code');
+        code.className = a.blocked ? 'ip-blocked' : 'ip-active';
+        code.textContent = a.ip;
+        tdIp.appendChild(code);
+        tr.appendChild(tdIp);
+
+        // Attempts
+        var tdAtt = document.createElement('td');
+        tdAtt.textContent = a.attempts;
+        tr.appendChild(tdAtt);
+
+        // Service
+        var tdSvc = document.createElement('td');
+        tdSvc.textContent = a.service;
+        tr.appendChild(tdSvc);
+
+        // Last Seen
+        var tdTs = document.createElement('td');
+        tdTs.textContent = a.last_seen.replace('T', ' ').split('.')[0];
+        tr.appendChild(tdTs);
+
+        // Actions
+        var tdAct = document.createElement('td');
+        var btn = document.createElement('button');
+        if (a.blocked) {
+            btn.className = 'btn btn-unblock';
+            btn.textContent = 'Unblock';
+        } else {
+            btn.className = 'btn btn-block';
+            btn.textContent = 'Block';
+        }
+        btn.setAttribute('data-ip', a.ip);
+        btn.setAttribute('onclick',
+            a.blocked ? 'doUnblock(this)' : 'doBlock(this)');
+        tdAct.appendChild(btn);
+        tr.appendChild(tdAct);
+
+        return tr;
+    }
+
+    function buildBlockedRow(ip) {
+        var tr = document.createElement('tr');
+
+        var tdIp = document.createElement('td');
+        var code = document.createElement('code');
+        code.className = 'ip-blocked';
+        code.textContent = ip.ip;
+        tdIp.appendChild(code);
+        tr.appendChild(tdIp);
+
+        var tdAtt = document.createElement('td');
+        tdAtt.textContent = ip.attempts;
+        tr.appendChild(tdAtt);
+
+        var tdSvc = document.createElement('td');
+        tdSvc.textContent = ip.service;
+        tr.appendChild(tdSvc);
+
+        var tdAct = document.createElement('td');
+        var btn = document.createElement('button');
+        btn.className = 'btn btn-unblock';
+        btn.textContent = 'Unblock';
+        btn.setAttribute('data-ip', ip.ip);
+        btn.setAttribute('onclick', 'doUnblock(this)');
+        tdAct.appendChild(btn);
+        tr.appendChild(tdAct);
+
+        return tr;
+    }
+
     // ── Refresh Dashboard ─────────────────────────────────
 
     async function refreshDashboard() {
@@ -233,72 +297,59 @@
         document.getElementById('stat-active').textContent = active;
         document.getElementById('stat-blocked').textContent = bc;
 
-        // Alerts table — rebuild from scratch
+        // Alerts table — rebuild with safe DOM
         var tbody = document.getElementById('alerts-body');
         if (tbody) {
-            var rows = alerts.map(function(a) {
-                var cls = a.blocked ? 'ip-blocked' : 'ip-active';
-                var badge = a.blocked
-                    ? '<span class="badge blocked">Blocked</span>'
-                    : '<span class="badge active">Active</span>';
-                var actionBtn = a.blocked
-                    ? '<button class="btn btn-unblock" onclick="doUnblock(this)" data-ip="'
-                      + a.ip + '">Unblock</button>'
-                    : '<button class="btn btn-block" onclick="doBlock(this)" data-ip="'
-                      + a.ip + '">Block</button>';
-                return '<tr data-ip="' + a.ip + '" data-blocked="' + a.blocked + '">'
-                    + '<td><code class="' + cls + '">' + a.ip + '</code></td>'
-                    + '<td>' + a.attempts + '</td>'
-                    + '<td>' + a.service + '</td>'
-                    + '<td>' + a.last_seen.replace('T', ' ').split('.')[0] + '</td>'
-                    + '<td>' + actionBtn + '</td>'
-                    + '</tr>';
-            }).join('');
-            tbody.innerHTML = rows;
+            tbody.innerHTML = '';
+            alerts.forEach(function(a) {
+                tbody.appendChild(buildAlertRow(a));
+            });
         }
 
-        // Blocked IPs section
         renderBlockedIPs(blocked);
     }
 
     function renderBlockedIPs(blocked) {
         var container = document.getElementById('blocked-container');
+        container.innerHTML = '';
         if (!blocked || blocked.length === 0) {
-            container.innerHTML = '<p class="empty-state" id="blocked-empty-msg">'
-                + 'No blocked IPs.</p>';
+            var p = document.createElement('p');
+            p.className = 'empty-state';
+            p.id = 'blocked-empty-msg';
+            p.textContent = 'No blocked IPs.';
+            container.appendChild(p);
             return;
         }
-        var html = '<table id="blocked-table"><thead><tr>'
-            + '<th>IP</th><th>Attempts</th><th>Service</th><th>Action</th>'
-            + '</tr></thead><tbody>';
-        blocked.forEach(function(ip) {
-            html += '<tr>'
-                + '<td><code class="ip-blocked">' + ip.ip + '</code></td>'
-                + '<td>' + ip.attempts + '</td>'
-                + '<td>' + ip.service + '</td>'
-                + '<td><button class="btn btn-unblock" '
-                + 'onclick="doUnblock(this)" data-ip="' + ip.ip + '">Unblock</button>'
-                + '</td></tr>';
+        var table = document.createElement('table');
+        table.id = 'blocked-table';
+        var thead = document.createElement('thead');
+        var headRow = document.createElement('tr');
+        ['IP', 'Attempts', 'Service', 'Action'].forEach(function(h) {
+            var th = document.createElement('th');
+            th.textContent = h;
+            headRow.appendChild(th);
         });
-        html += '</tbody></table>';
-        container.innerHTML = html;
+        thead.appendChild(headRow);
+        table.appendChild(thead);
+        var tbody = document.createElement('tbody');
+        blocked.forEach(function(ip) {
+            tbody.appendChild(buildBlockedRow(ip));
+        });
+        table.appendChild(tbody);
+        container.appendChild(table);
     }
 
     // ── Init ──────────────────────────────────────────────
 
     document.addEventListener('DOMContentLoaded', function() {
         loadSavedToken();
-        var blocked = [];
-        {% for alert in alerts %}
-        {% if alert.blocked %}
-        blocked.push({
-            ip: '{{ alert.ip }}',
-            attempts: {{ alert.attempts }},
-            service: '{{ alert.service }}'
-        });
-        {% endif %}
-        {% endfor %}
-        renderBlockedIPs(blocked);
+        try {
+            var initEl = document.getElementById('blocked-init');
+            var blocked = JSON.parse(initEl.textContent);
+            renderBlockedIPs(blocked);
+        } catch (e) {
+            // No blocked data
+        }
     });
 
     // Poll every 10 seconds
