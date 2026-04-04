@@ -18,6 +18,11 @@ from peewee import (  # type: ignore[import-untyped]
 )
 
 
+# UTC-aware datetime factory for all models
+def _utcnow() -> datetime.datetime:
+    return datetime.datetime.now(datetime.timezone.utc)
+
+
 class BaseModel(Model):  # type: ignore[misc]
     """Shared base — allows swapping the database at runtime."""
 
@@ -31,8 +36,8 @@ class Alert(BaseModel):
     ip = CharField()
     attempts = IntegerField()
     service = CharField(default="ssh")
-    first_seen = DateTimeField(default=datetime.datetime.now)
-    last_seen = DateTimeField(default=datetime.datetime.now)
+    first_seen = DateTimeField(default=_utcnow)
+    last_seen = DateTimeField(default=_utcnow)
     blocked = BooleanField(default=False)
 
     class Meta:
@@ -44,7 +49,7 @@ class BlockedIP(BaseModel):
     """A record of a blocked IP address."""
 
     ip = CharField(unique=True)
-    blocked_at = DateTimeField(default=datetime.datetime.now)
+    blocked_at = DateTimeField(default=_utcnow)
     reason = CharField()
     strategy = CharField()
     is_blocked = BooleanField(default=True)

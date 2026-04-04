@@ -11,6 +11,7 @@ Authentication:
 
 from __future__ import annotations
 
+import hmac
 import logging
 from functools import wraps
 from typing import Any, Dict, Optional, TYPE_CHECKING
@@ -42,6 +43,9 @@ def _alert_to_dict(alert: Alert) -> Dict[str, Any]:
 def _require_auth(api_token: str):
     """Decorator: abort with 401/403 if Bearer token is missing or wrong.
 
+    Uses constant-time comparison to prevent timing attacks.
+    Also checks Origin/Referer headers as basic CSRF protection.
+
     Args:
         api_token: The expected API token.
 
@@ -56,8 +60,16 @@ def _require_auth(api_token: str):
                 return jsonify({"error": "Missing Authorization header"}), 401
 
             token = auth[7:].strip()
-            if token != api_token:
+            if not hmac.compare_digest(token, api_token):
                 return jsonify({"error": "Invalid API token"}), 403
+
+            # Basic CSRF: reject cross-origin POST/PUT/DELETE requests
+            if request.method in ("POST", "PUT", "DELETE"):
+                origin = request.headers.get("Origin", "")
+                referer = request.headers.get("Referer", "")
+                host = request.host
+                if origin and host not in origin and host not in referer:
+                    return jsonify({"error": "Cross-origin request rejected"}), 403
 
             return f(*args, **kwargs)
         return wrapper
@@ -120,6 +132,11 @@ def create_app(
         @_require_auth(api_token)
         def api_block() -> Any:
             """Block an IP address. Requires Bearer token authentication."""
+            if not request.is_json:
+                return jsonify(
+                    {"error": "Content-Type must be application/json"}
+                ), 415
+
             data = request.get_json(silent=True) or {}
             ip = data.get("ip", "")
             if not ip:
@@ -146,6 +163,11 @@ def create_app(
         @_require_auth(api_token)
         def api_unblock() -> Any:
             """Unblock an IP address. Requires Bearer token authentication."""
+            if not request.is_json:
+                return jsonify(
+                    {"error": "Content-Type must be application/json"}
+                ), 415
+
             data = request.get_json(silent=True) or {}
             ip = data.get("ip", "")
             if not ip:

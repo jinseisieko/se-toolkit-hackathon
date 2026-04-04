@@ -120,6 +120,10 @@ class Config:
         self.db_path = os.getenv("DB_PATH", "data/sentinel.db")
         self.log_path = os.getenv("LOG_PATH", "/var/log/auth.log")
         self.block_threshold = int(os.getenv("BLOCK_THRESHOLD", "5"))
+        if self.block_threshold < 1:
+            raise ValueError(
+                f"BLOCK_THRESHOLD must be >= 1, got {self.block_threshold}"
+            )
         self.firewall_strategy = os.getenv("FIREWALL_STRATEGY", "noop")
         self.geoip_provider = os.getenv("GEOIP_PROVIDER", "mock")
         self.api_token = os.getenv("API_TOKEN") or None
