@@ -60,7 +60,15 @@ class TelegramBot:
     async def start(self) -> None:
         """Initialise the database, register handlers, and start polling."""
         if not BOT_TOKEN or BOT_TOKEN == "test:token":
-            logger.error("TELEGRAM_BOT_TOKEN not set — bot will not start.")
+            logger.warning(
+                "TELEGRAM_BOT_TOKEN not set — Telegram bot inactive. "
+                "Set it in .env to enable."
+            )
+            # Keep container alive — wait forever
+            import asyncio
+
+            while True:
+                await asyncio.sleep(60)
             return
 
         # Open shared database
