@@ -1,7 +1,12 @@
-# 7. SSHAuthLogParser
+# 7. SSHAuthLogParser (V1 — Legacy)
 
-**Pattern:** Template Method  
-**Files:** `src/adapters/log_tail.py`, `src/adapters/parsers/ssh_auth.py`  
+> **Deprecated.** This parser inherits from `BaseLogParser` and is kept for
+> backward compatibility with test suites. The production worker uses the
+> V2 [`SSHAuthPlugin`](../10-ssh-auth-plugin/) which implements
+> `LogParserPlugin` and supports the `ParserRegistry`.
+
+**Pattern:** Template Method
+**Files:** `src/adapters/log_tail.py`, `src/adapters/parsers/ssh_auth.py`
 **Tests:** `tests/unit/test_parsers.py` (11 tests)
 
 ---

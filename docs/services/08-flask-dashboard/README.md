@@ -14,11 +14,40 @@ Serves the LogSentinel web dashboard — a real-time view of alerts and blocked 
 
 ## Routes
 
+### Public (No Authentication)
+
 | Route | Method | Response | Description |
 |-------|--------|----------|-------------|
 | `/` | GET | HTML | Main dashboard page |
 | `/api/alerts` | GET | JSON | Recent 50 alerts |
 | `/api/blocked` | GET | JSON | All blocked alerts |
+| `/metrics` | GET | Plain text | Prometheus-format metrics (added by worker) |
+
+### Authenticated (Bearer Token Required)
+
+These routes are only available when `api_token` is set in `create_app()`.
+
+| Route | Method | Auth | Description |
+|-------|--------|------|-------------|
+| `/api/block` | POST | `Authorization: Bearer <token>` | Block an IP address |
+| `/api/unblock` | POST | `Authorization: Bearer <token>` | Unblock an IP address |
+
+### Block/Unblock Request Format
+
+```bash
+curl -X POST http://localhost:5000/api/block \
+  -H "Authorization: Bearer your-secret-token" \
+  -H "Content-Type: application/json" \
+  -d '{"ip": "10.0.0.1", "reason": "manual block"}'
+# → {"blocked": true, "ip": "10.0.0.1", "reason": "manual block"}
+```
+
+| Status | Meaning |
+|--------|---------|
+| 401 | No `Authorization` header or token missing |
+| 403 | Token does not match the configured `api_token` |
+| 200 | Success |
+| 404 | `api_token` not configured (endpoints not registered) |
 
 ---
 
