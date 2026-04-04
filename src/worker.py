@@ -36,7 +36,7 @@ from src.core.detector import ThresholdDetector
 from src.core.enrichment.base import EnrichedEvent
 from src.core.events import EventBroker, SecurityEvent
 from src.core.observability.metrics import MetricsCollector
-from src.core.plugins.parser_plugin import LogParserPlugin, ParsedEntry
+from src.core.plugins.parser_plugin import ParsedEntry
 from src.core.plugins.registry import ParserRegistry
 from src.core.repositories import PeeweeAlertRepository
 from src.core.services.block_service import BlockRepository, BlockService, BlockedIPRecord
@@ -44,7 +44,6 @@ from src.infrastructure.db import init_database
 from src.infrastructure.models import BlockedIP
 from src.interfaces.commands.cli import CLIInputAdapter
 from src.interfaces.commands.factory import create_command_handler
-from src.interfaces.commands.handler import CommandContext
 from src.interfaces.web.app import create_app
 
 load_dotenv()

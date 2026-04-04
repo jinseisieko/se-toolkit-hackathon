@@ -7,8 +7,8 @@ Signatures must NOT be changed without updating all subscribers.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from dataclasses import dataclass
+from datetime import datetime
 from typing import Callable, List
 
 logger = logging.getLogger(__name__)

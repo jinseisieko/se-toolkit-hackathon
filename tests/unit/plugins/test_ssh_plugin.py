@@ -13,12 +13,11 @@ Covers:
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from ipaddress import IPv4Address, IPv6Address
+from ipaddress import IPv4Address
 
 import pytest
 
 from src.adapters.parsers.plugins.ssh_auth import SSHAuthPlugin
-from src.core.plugins.parser_plugin import Severity
 from src.core.plugins.registry import ParserRegistry
 
 

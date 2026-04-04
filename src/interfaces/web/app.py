@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import logging
 from functools import wraps
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Dict, Optional, TYPE_CHECKING
 
 from flask import Flask, jsonify, render_template, request
 

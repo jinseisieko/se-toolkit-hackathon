@@ -15,7 +15,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from src.core.events import SecurityEvent
-from src.core.services.block_service import BlockService, BlockRepository
+from src.core.services.block_service import BlockService
 from src.adapters.firewall.noop import NoOpStrategy
 
 

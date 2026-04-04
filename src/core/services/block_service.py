@@ -11,7 +11,6 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional, Protocol
 
 from src.core.blocking import FirewallStrategy
 from src.core.events import SecurityEvent

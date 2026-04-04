@@ -112,7 +112,6 @@ class PeeweeAlertRepository(AlertRepository):
 
     def mark_ip_blocked(self, ip: str) -> None:
         from src.infrastructure.models import Alert as AlertModel
-        from datetime import datetime, timezone
 
         updated = AlertModel.update(blocked=True).where(
             AlertModel.ip == ip

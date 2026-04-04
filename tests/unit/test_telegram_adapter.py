@@ -16,7 +16,7 @@ from unittest.mock import MagicMock, AsyncMock
 import pytest
 
 from src.adapters.telegram import TelegramInputAdapter
-from src.interfaces.commands.handler import CommandContext, CommandHandler, CommandResult
+from src.interfaces.commands.handler import CommandContext, CommandResult
 
 
 # ── Helpers ───────────────────────────────────────────────────

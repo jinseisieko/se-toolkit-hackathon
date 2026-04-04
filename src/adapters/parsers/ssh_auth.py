@@ -30,9 +30,12 @@ class SSHAuthLogParser(BaseLogParser):
 
     Handles syslog-style lines like::
 
-        Apr  4 12:00:01 server sshd[12345]: Failed password for root from 192.0.2.1 port 22 ssh2
-        Apr  4 12:00:01 server sshd[12345]: Failed password for invalid user admin from 10.0.0.1 port 22 ssh2
-        Apr  4 12:00:01 server sshd[12345]: Failed publickey for deploy from 172.16.0.5 port 22 ssh2
+        Apr  4 12:00:01 server sshd[12345]: \
+            Failed password for root from 192.0.2.1 port 22 ssh2
+        Apr  4 12:00:01 server sshd[12345]: \
+            Failed password for invalid user admin from 10.0.0.1
+        Apr  4 12:00:01 server sshd[12345]: \
+            Failed publickey for deploy from 172.16.0.5 port 22 ssh2
     """
 
     # Matches both password and publickey, with optional "invalid user <user>"

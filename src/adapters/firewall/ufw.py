@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import logging
 import subprocess
-from typing import Optional
 
 from src.core.blocking import FirewallStrategy
 from src.utils.validation import validate_ip

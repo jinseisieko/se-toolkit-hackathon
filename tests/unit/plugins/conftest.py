@@ -6,7 +6,6 @@ import re
 from datetime import datetime, timezone
 from ipaddress import IPv4Address
 from typing import Any, Dict, List, Optional
-from unittest.mock import MagicMock
 
 import pytest
 

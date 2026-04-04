@@ -10,7 +10,6 @@ import datetime
 from typing import Any, Dict
 
 from peewee import (  # type: ignore[import-untyped]
-    AutoField,
     BooleanField,
     CharField,
     DateTimeField,

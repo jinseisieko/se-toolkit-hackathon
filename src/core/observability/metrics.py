@@ -7,9 +7,8 @@ Exports metrics in plain-text Prometheus format via ``render()``.
 from __future__ import annotations
 
 import logging
-import time
 from ipaddress import IPv4Address
-from typing import Dict, Optional
+from typing import Dict
 
 from src.core.enrichment.base import EnrichedEvent
 
@@ -106,13 +105,18 @@ class MetricsCollector:
         for key, count in sorted(self._parse_errors.items()):
             lines.append(f'logsentinel_parse_errors_total{{key="{key}"}} {count}')
 
-        lines.append("# HELP logsentinel_parse_duration_seconds Processing time per parser")
+        lines.append(
+            "# HELP logsentinel_parse_duration_seconds"
+            " Processing time per parser"
+        )
         lines.append("# TYPE logsentinel_parse_duration_seconds summary")
         for parser, times in sorted(self._processing_times.items()):
             if times:
                 avg = sum(times) / len(times)
+                label = f'parser="{parser}",quantile="avg"'
                 lines.append(
-                    f'logsentinel_parse_duration_seconds{{parser="{parser}",quantile="avg"}} {avg:.6f}'
+                    f"logsentinel_parse_duration_seconds{{{label}}} "
+                    f"{avg:.6f}"
                 )
 
         lines.append("")

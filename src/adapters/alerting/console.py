@@ -52,9 +52,6 @@ class ConsoleChannel(AlertChannel):
             SendResult indicating success.
         """
         use_stderr = config.get("use_stderr", False)
-        colorize = config.get(
-            "colorize", sys.stdout.isatty() if hasattr(sys.stdout, "isatty") else False
-        )
 
         geo_str = ""
         if event.geo:

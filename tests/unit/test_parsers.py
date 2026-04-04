@@ -14,7 +14,6 @@ from __future__ import annotations
 import pytest
 
 from src.adapters.parsers.ssh_auth import SSHAuthLogParser
-from src.adapters.log_tail import ParsedEntry
 
 
 @pytest.fixture
