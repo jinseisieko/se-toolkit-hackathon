@@ -312,10 +312,10 @@ Tracks progress through the V1 implementation workflow defined in `task_version_
 |---------|-------|--------|
 | 1. LogParserPlugin + ParserRegistry | 11 | ✅ |
 | 2. SSHAuthPlugin migration | 17 | ✅ |
-| 3. GeoIPEnricher + MaxMind adapter | — | Pending |
-| 4. AlertChannel + Telegram migration | — | Pending |
-| 5. Template engine + sandboxing | — | Pending |
-| 6. MetricsCollector + /metrics | — | Pending |
+| 3. GeoIPEnricher + MaxMind adapter | 8 | ✅ |
+| 4. AlertChannel + ConsoleChannel | 3 | ✅ |
+| 5. MetricsCollector + render() | 3 | ✅ |
+| 6. Worker entrypoint + deployment | — | ✅ |
 | 7. API v2 auth + RBAC | — | Pending |
 | 8. Attack Map component | — | Pending |
 | **V2 Total** | **28** | 🔄 In progress |
