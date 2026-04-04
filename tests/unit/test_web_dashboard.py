@@ -95,3 +95,57 @@ class TestDashboardEdgeCases:
         resp = client.get("/api/blocked")
         assert resp.status_code == 200
         assert resp.get_json() == []
+
+
+# ── Dashboard UI: Token input + block/unblock buttons ─────────
+
+
+class TestDashboardUI:
+    def test_dashboard_has_token_input(self, client) -> None:
+        resp = client.get("/")
+        html = resp.data.decode()
+        assert 'id="api-token"' in html or "api-token" in html
+
+    def test_dashboard_has_block_buttons(self, client, alert_repo) -> None:
+        alert_repo.create(ip="192.0.2.1", attempts=5, service="ssh")
+        alert_repo.create(ip="10.0.0.1", attempts=3, service="ssh")
+        alert_repo.mark_blocked(2)
+
+        resp = client.get("/")
+        html = resp.data.decode()
+        # Each row should have a block or unblock button
+        assert "btn-block" in html or "block-btn" in html
+        assert "btn-unblock" in html or "unblock-btn" in html
+
+    def test_blocked_ips_section(self, client, alert_repo) -> None:
+        alert = alert_repo.create(ip="10.0.0.1", attempts=3, service="ssh")
+        alert_repo.mark_blocked(alert.id)
+
+        resp = client.get("/")
+        html = resp.data.decode()
+        assert "Blocked" in html or "blocked" in html
+
+    def test_block_unblock_endpoints_return_message(
+        self, client, alert_repo
+    ) -> None:
+        app = create_app(alert_repo=alert_repo, api_token="test-token")
+        app.config["TESTING"] = True
+
+        with app.test_client() as c:
+            resp = c.post(
+                "/api/block",
+                json={"ip": "1.2.3.4", "reason": "test"},
+                headers={"Authorization": "Bearer test-token"},
+            )
+            assert resp.status_code == 200
+            data = resp.get_json()
+            assert data["message"] == "Blocked 1.2.3.4"
+
+            resp = c.post(
+                "/api/unblock",
+                json={"ip": "1.2.3.4"},
+                headers={"Authorization": "Bearer test-token"},
+            )
+            assert resp.status_code == 200
+            data = resp.get_json()
+            assert data["message"] == "Unblocked 1.2.3.4"

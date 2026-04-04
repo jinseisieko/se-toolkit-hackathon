@@ -117,3 +117,124 @@ footer {
 
 footer a { color: var(--accent); text-decoration: none; }
 footer a:hover { text-decoration: underline; }
+
+/* ── API Token Input ───────────────────────────────────────── */
+
+.token-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    padding: 0.75rem 1rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 0.9rem;
+}
+
+.token-bar label {
+    color: var(--muted);
+    white-space: nowrap;
+}
+
+.token-bar input {
+    flex: 1;
+    min-width: 0;
+    padding: 0.4rem 0.6rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 0.85rem;
+}
+
+.token-bar input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.token-status {
+    color: var(--green);
+    font-size: 0.85rem;
+    min-width: 1.5rem;
+}
+
+/* ── Action Buttons ────────────────────────────────────────── */
+
+.btn {
+    display: inline-block;
+    padding: 0.3rem 0.7rem;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s;
+}
+
+.btn:hover { opacity: 0.8; }
+.btn:active { opacity: 0.6; }
+
+.btn-block {
+    background: rgba(248, 113, 113, 0.2);
+    color: var(--red);
+}
+
+.btn-unblock {
+    background: rgba(74, 222, 128, 0.2);
+    color: var(--green);
+}
+
+.btn-save {
+    background: rgba(56, 189, 248, 0.2);
+    color: var(--accent);
+}
+
+.btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* ── Toast Notifications ───────────────────────────────────── */
+
+.toast-container {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.toast {
+    padding: 0.6rem 1rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    animation: slideIn 0.2s ease-out;
+    max-width: 320px;
+}
+
+.toast.success {
+    background: rgba(74, 222, 128, 0.15);
+    border: 1px solid var(--green);
+    color: var(--green);
+}
+
+.toast.error {
+    background: rgba(248, 113, 113, 0.15);
+    border: 1px solid var(--red);
+    color: var(--red);
+}
+
+@keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+/* ── Blocked IPs Section ───────────────────────────────────── */
+
+.blocked-section { margin-top: 2rem; }
+
+.blocked-section table { margin-top: 0.5rem; }

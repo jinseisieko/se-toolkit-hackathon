@@ -63,6 +63,7 @@ class TestApiBlockAuth:
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["ip"] == "10.0.0.1"
+        assert data["message"] == "Blocked 10.0.0.1"
 
 
 class TestApiUnblockAuth:
@@ -86,6 +87,9 @@ class TestApiUnblockAuth:
         )
         # Returns 200 even if IP not found (idempotent)
         assert resp.status_code in (200, 204)
+        data = resp.get_json()
+        assert data["ip"] == "1.2.3.4"
+        assert data["message"] == "Unblocked 1.2.3.4"
 
 
 class TestPublicEndpoints:

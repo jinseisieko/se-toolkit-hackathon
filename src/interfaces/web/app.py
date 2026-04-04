@@ -124,9 +124,14 @@ def create_app(
             if not ip:
                 return jsonify({"error": "Missing 'ip' in request body"}), 400
 
-            reason = data.get("reason", "manual block via API")
+            reason = data.get("reason", "manual block via dashboard")
             alert_repo.mark_ip_blocked(ip)
-            return jsonify({"ip": ip, "reason": reason, "blocked": True}), 200
+            return jsonify({
+                "ip": ip,
+                "reason": reason,
+                "blocked": True,
+                "message": f"Blocked {ip}",
+            }), 200
 
         @app.route("/api/unblock", methods=["POST"])
         @_require_auth(api_token)
@@ -138,6 +143,10 @@ def create_app(
                 return jsonify({"error": "Missing 'ip' in request body"}), 400
 
             alert_repo.mark_ip_unblocked(ip)
-            return jsonify({"ip": ip, "blocked": False}), 200
+            return jsonify({
+                "ip": ip,
+                "blocked": False,
+                "message": f"Unblocked {ip}",
+            }), 200
 
     return app
