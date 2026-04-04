@@ -1,5 +1,12 @@
 """SSH authentication log parser.
 
+.. deprecated::
+    This legacy parser inherits from ``BaseLogParser`` and is kept for
+    backward compatibility with demo scripts and V1 test suites.
+    The production worker (``src/worker.py``) uses the V2 plugin
+    ``SSHAuthPlugin`` (``src/adapters/parsers/plugins/ssh_auth.py``)
+    which implements ``LogParserPlugin`` and supports the plugin registry.
+
 Parses ``/var/log/auth.log`` lines for failed SSH login attempts.
 Supports both ``Failed password`` and ``Failed publickey`` patterns,
 including the ``invalid user`` variant.

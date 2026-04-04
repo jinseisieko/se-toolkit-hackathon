@@ -23,8 +23,8 @@ pytest tests/unit/ -q && mypy src/ --strict
 
 Expected output:
 ```
-74 passed in 0.XXs
-Success: no issues found in 28 source files
+110+ passed in 0.XXs
+Success: no issues found in 40+ source files
 ```
 
 ---
@@ -35,7 +35,9 @@ Success: no issues found in 28 source files
 pytest tests/unit/ -v
 ```
 
-This runs **74 tests** across 9 test files:
+This runs **110+ tests** across 14 test files:
+
+### Core Services (V1)
 
 | Test File | Tests | What it verifies |
 |-----------|-------|-----------------|
@@ -48,19 +50,32 @@ This runs **74 tests** across 9 test files:
 | `test_telegram_adapter.py` | 7 | Chat auth, message handling, async reply |
 | `test_parsers.py` | 11 | SSH log regex, timestamps, IPv4/IPv6 |
 | `test_web_dashboard.py` | 7 | HTML rendering, JSON API, empty state |
+| `test_api_auth.py` | 9 | Bearer token auth for block/unblock endpoints |
+
+### Plugin System (V2)
+
+| Test File | Tests | What it verifies |
+|-----------|-------|-----------------|
+| `plugins/test_parser_registry.py` | 11 | Plugin registration, config injection, isolation |
+| `plugins/test_ssh_plugin.py` | 17 | SSHAuthPlugin parsing, registry integration |
+| `enrichment/test_geo_ip.py` | 8 | GeoIPEnricher with mock/MaxMind providers |
 
 ### Run a Single Service's Tests
 
 ```bash
-pytest tests/unit/test_events.py -v        # EventBroker
-pytest tests/unit/test_detector.py -v       # ThresholdDetector
-pytest tests/unit/test_blocking.py -v       # FirewallStrategy
-pytest tests/unit/test_block_service.py -v  # BlockService
-pytest tests/unit/test_repositories.py -v   # AlertRepository
-pytest tests/unit/test_command_handler.py -v # CommandHandler + CLI
+pytest tests/unit/test_events.py -v           # EventBroker
+pytest tests/unit/test_detector.py -v         # ThresholdDetector
+pytest tests/unit/test_blocking.py -v         # FirewallStrategy
+pytest tests/unit/test_block_service.py -v    # BlockService
+pytest tests/unit/test_repositories.py -v     # AlertRepository
+pytest tests/unit/test_command_handler.py -v  # CommandHandler + CLI
 pytest tests/unit/test_telegram_adapter.py -v # TelegramInputAdapter
-pytest tests/unit/test_parsers.py -v        # SSHAuthLogParser
-pytest tests/unit/test_web_dashboard.py -v  # Flask Dashboard
+pytest tests/unit/test_parsers.py -v          # SSHAuthLogParser (legacy)
+pytest tests/unit/test_web_dashboard.py -v    # Flask Dashboard
+pytest tests/unit/test_api_auth.py -v         # API Bearer auth
+pytest tests/unit/plugins/test_parser_registry.py -v  # ParserRegistry
+pytest tests/unit/plugins/test_ssh_plugin.py -v       # SSHAuthPlugin
+pytest tests/unit/enrichment/test_geo_ip.py -v        # GeoIPEnricher
 ```
 
 ---
@@ -71,7 +86,7 @@ pytest tests/unit/test_web_dashboard.py -v  # Flask Dashboard
 mypy src/ --strict
 ```
 
-All 28 source files must pass `mypy --strict` with zero errors.
+All 40+ source files must pass `mypy --strict` with zero errors.
 
 ---
 
@@ -83,13 +98,13 @@ Run the full end-to-end demo that simulates an SSH brute-force attack:
 python demo.py
 ```
 
-This shows:
-1. Database initialization
+This shows all 9 services in action:
+1. Database initialization (in-memory SQLite)
 2. EventBroker subscription
 3. ThresholdDetector configuration
 4. NoOpStrategy (safe test mode)
-5. SSH log parser processing 11 fake log lines
-6. 3 threshold breaches detected (192.0.2.1, 10.0.0.1, 172.16.0.5)
+5. SSH log parser processing fake log lines
+6. Threshold breaches detected
 7. Alerts stored in SQLite and queryable
 8. Command handler: status, unblock, block, permission denied
 9. Flask dashboard HTML + JSON API responses

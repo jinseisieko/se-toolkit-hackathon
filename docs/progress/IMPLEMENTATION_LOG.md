@@ -1,6 +1,6 @@
 # LogSentinel — Implementation Log
 
-Tracks progress through the V1 implementation workflow defined in `task_version_1.md`.
+Tracks progress through the V1 and V2 implementation workflows.
 
 ---
 
