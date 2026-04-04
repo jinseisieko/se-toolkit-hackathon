@@ -1,0 +1,17 @@
+services:
+  worker:
+    build: .
+    command: python -m src.worker
+    volumes:
+      - /var/log/auth.log:/var/log/auth.log:ro
+      - ./data:/app/data
+    env_file: .env
+    environment:
+      - FIREWALL_STRATEGY=${FIREWALL_STRATEGY:-noop}
+      - TEST_MODE=${TEST_MODE:-true}
+      - CLI_MODE=${CLI_MODE:-false}
+      - WEB_HOST=0.0.0.0
+      - WEB_PORT=5000
+    ports:
+      - "${WEB_PORT:-5000}:5000"
+    restart: unless-stopped
