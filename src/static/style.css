@@ -89,6 +89,16 @@ td code {
     font-size: 0.9em;
 }
 
+td code.ip-active {
+    color: var(--green);
+    border-left: 2px solid var(--green);
+}
+
+td code.ip-blocked {
+    color: var(--red);
+    border-left: 2px solid var(--red);
+}
+
 .badge {
     display: inline-block;
     padding: 2px 8px;

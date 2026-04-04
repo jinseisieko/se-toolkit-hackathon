@@ -104,7 +104,18 @@ class TestDashboardUI:
     def test_dashboard_has_token_input(self, client) -> None:
         resp = client.get("/")
         html = resp.data.decode()
-        assert 'id="api-token"' in html or "api-token" in html
+        assert 'id="api-token"' in html
+
+    def test_token_label_has_no_key_emoji(self, client) -> None:
+        resp = client.get("/")
+        html = resp.data.decode()
+        assert "\U0001f511" not in html  # no 🔑
+        assert "API Token" in html
+
+    def test_token_status_has_no_check_emoji(self, client) -> None:
+        resp = client.get("/")
+        html = resp.data.decode()
+        assert "\u2705" not in html  # no ✅
 
     def test_dashboard_has_block_buttons(self, client, alert_repo) -> None:
         alert_repo.create(ip="192.0.2.1", attempts=5, service="ssh")
@@ -113,9 +124,30 @@ class TestDashboardUI:
 
         resp = client.get("/")
         html = resp.data.decode()
-        # Each row should have a block or unblock button
-        assert "btn-block" in html or "block-btn" in html
-        assert "btn-unblock" in html or "unblock-btn" in html
+        assert "btn-block" in html
+        assert "btn-unblock" in html
+
+    def test_no_status_column_in_alerts(self, client, alert_repo) -> None:
+        alert_repo.create(ip="192.0.2.1", attempts=5, service="ssh")
+        alert_repo.create(ip="10.0.0.1", attempts=3, service="ssh")
+        alert_repo.mark_blocked(2)
+
+        resp = client.get("/")
+        html = resp.data.decode()
+        # Status column header should be gone
+        assert "<th>Status</th>" not in html
+
+    def test_ip_colorized_by_status(self, client, alert_repo) -> None:
+        alert_repo.create(ip="192.0.2.1", attempts=5, service="ssh")
+        alert_repo.create(ip="10.0.0.1", attempts=3, service="ssh")
+        alert_repo.mark_blocked(2)
+
+        resp = client.get("/")
+        html = resp.data.decode()
+        # Active IP should have ip-active class
+        assert 'class="ip-active"' in html
+        # Blocked IP should have ip-blocked class
+        assert 'class="ip-blocked"' in html
 
     def test_blocked_ips_section(self, client, alert_repo) -> None:
         alert = alert_repo.create(ip="10.0.0.1", attempts=3, service="ssh")
