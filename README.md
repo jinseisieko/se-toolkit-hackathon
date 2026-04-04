@@ -149,6 +149,8 @@ docker compose up --build -d    # Update to latest code
 
 ## API Endpoints
 
+### Public (No Authentication)
+
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/` | GET | Web dashboard (HTML) |
@@ -156,7 +158,16 @@ docker compose up --build -d    # Update to latest code
 | `/api/blocked` | GET | Blocked IPs as JSON |
 | `/metrics` | GET | Prometheus-format metrics |
 
-### Example Response
+### Authenticated (Bearer Token Required)
+
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/api/block` | POST | `Authorization: Bearer <token>` | Block an IP |
+| `/api/unblock` | POST | `Authorization: Bearer <token>` | Unblock an IP |
+
+Set the token via `API_TOKEN` in `.env`. If empty, block/unblock endpoints are disabled (404).
+
+### Example Responses
 
 ```json
 GET /api/alerts
@@ -170,6 +181,22 @@ GET /api/alerts
     "blocked": false
   }
 ]
+```
+
+```bash
+# Block an IP (requires Bearer token)
+curl -X POST http://localhost:5000/api/block \
+  -H "Authorization: Bearer your-secret-token" \
+  -H "Content-Type: application/json" \
+  -d '{"ip": "10.0.0.1", "reason": "suspicious activity"}'
+# → {"ip": "10.0.0.1", "reason": "suspicious activity", "blocked": true}
+
+# Unblock an IP
+curl -X POST http://localhost:5000/api/unblock \
+  -H "Authorization: Bearer your-secret-token" \
+  -H "Content-Type: application/json" \
+  -d '{"ip": "10.0.0.1"}'
+# → {"ip": "10.0.0.1", "blocked": false}
 ```
 
 ### Example Metrics
