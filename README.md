@@ -32,37 +32,22 @@ LogSentinel watches authentication logs in real time, automatically blocks malic
 
 ### Implemented (Version 1)
 
-- **Log Parsing** — Tails `/var/log/auth.log` and detects failed SSH login attempts using regex
-- **Threshold Detection** — Aggregates failures per IP; triggers an alert after a configurable threshold (default: 5 attempts)
-- **Auto-Block** — Blocks offending IPs via `ufw` / `iptables`
-- **SQLite Database** — Stores alerts, blocked IPs, and bot interaction logs (Peewee ORM)
-- **Web Dashboard** — View real-time alert feed, blocked IP table, and basic stats
-- **Telegram Bot** — Receive alerts and run `/start`, `/status` commands
+- **SSH Log Parsing** — Tails `/var/log/auth.log` and detects failed SSH login attempts (password + publickey)
+- **Threshold Detection** — Sliding-window aggregation per IP; publishes events when configurable threshold is breached
+- **Auto-Block** — Blocks offending IPs via `ufw` (production) or log-only mode (test)
+- **SQLite Database** — Stores alerts and blocked IPs (Peewee ORM, Repository pattern)
+- **Web Dashboard** — Dark-themed UI with alert table, stats cards, and JSON API (`/api/alerts`, `/api/blocked`)
+- **Telegram Bot** — `/start`, `/status`, `/unblock <IP>`, `/block <IP>` with test mode chat restriction
+- **CLI Test Mode** — Interactive stdin-based command interface for safe development without Telegram or firewall side effects
+- **Design Patterns** — Observer, Strategy, Repository, Factory, Adapter, Template Method, Application Factory
 
 ### Planned (Version 2)
 
-- **Telegram Admin Commands** — `/unblock <IP>`, `/stats` with detailed attack breakdown
 - **Attack Timeline View** — Visual timeline of attacks on the web dashboard
 - **Geo-IP Enrichment** — Show attacker location on the dashboard
-- **Test Mode** — Restrict bot access to a specific chat ID, disable destructive commands for safe development
+- **Additional Log Parsers** — Apache, Nginx, custom formats
+- **Advanced Alert Channels** — Slack, email, webhook
 - **Docker Compose Deployment** — All services containerized and deployable with one command
-
----
-
-## Usage
-
-### Telegram Bot
-
-| Command | Description |
-|---------|-------------|
-| `/start` | Initialize the bot |
-| `/status` | Show active and blocked IP counts |
-| `/stats` | View detailed attack statistics |
-| `/unblock <IP>` | Unblock a specific IP |
-
-### Web Dashboard
-
-Navigate to `http://<VM_IP>:5000` to view the dashboard, browse alerts, see blocked IPs, and configure the block threshold.
 
 ---
 
@@ -84,19 +69,50 @@ Navigate to `http://<VM_IP>:5000` to view the dashboard, browse alerts, see bloc
 │              └───────────────┘                   │
 │                                                 │
 │  Reads: /var/log/auth.log                       │
-│  Blocks: ufw / iptables                         │
+│  Blocks: ufw / iptables (or NoOp for testing)   │
 └─────────────────────────────────────────────────┘
 ```
 
-### Components
+### Design Patterns
 
-| Component | Tech | Role |
-|-----------|------|------|
-| **Backend / Web** | Flask + Jinja2 | Dashboard, REST API, config panel |
-| **Log Worker** | Python + `tail` + `re` | Tails auth.log, detects patterns, triggers blocks |
-| **Telegram Bot** | `python-telegram-bot` | Pushes alerts, accepts admin commands |
-| **Database** | Peewee + SQLite | Stores alerts, blocked IPs, bot logs |
-| **Deployment** | Docker Compose | Single-VM orchestration |
+| Pattern | Component | Benefit |
+|---------|-----------|---------|
+| **Observer** | EventBroker → Detector, BlockService, Telegram | Decouples detection from actions; easy to add new responders |
+| **Strategy** | FirewallStrategy: UFWStrategy / NoOpStrategy | Swap blocking mechanisms without changing core logic |
+| **Factory** | CommandFactory creates handlers from command strings | Centralized routing; easy to extend with new commands |
+| **Repository** | AlertRepository ABC → PeeweeAlertRepository | Isolates ORM; simplifies testing and future DB migrations |
+| **Adapter** | TelegramInputAdapter, CLIInputAdapter | Same handlers, different input sources (test mode ready) |
+| **Template Method** | BaseLogParser → SSHAuthLogParser | Standardize log parsing while allowing format-specific rules |
+| **Application Factory** | create_app(alert_repo) → Flask app | Testable with in-memory DB, swappable databases in prod |
+
+---
+
+## Usage
+
+### Telegram Bot
+
+| Command | Description |
+|---------|-------------|
+| `/start` | Welcome message with available commands |
+| `/status` | Show active and blocked IP counts |
+| `/unblock <IP>` | Unblock a specific IP |
+| `/block <IP> [reason]` | Manually block an IP |
+
+### CLI Test Mode
+
+```bash
+# Run the worker with NoOpStrategy (test mode)
+# Then in another terminal, interact via stdin:
+# ❯ /status
+# ✅ Active: 5 | Blocked: 2
+# ❯ /unblock 192.0.2.1
+# ✅ Unblocked 192.0.2.1
+# ❯ quit
+```
+
+### Web Dashboard
+
+Navigate to `http://<VM_IP>:5000` to view the dashboard. The JSON API is available at `/api/alerts` and `/api/blocked`.
 
 ---
 
@@ -106,77 +122,110 @@ Navigate to `http://<VM_IP>:5000` to view the dashboard, browse alerts, see bloc
 - **Web Framework:** Flask + Jinja2
 - **ORM / DB:** Peewee + SQLite
 - **Telegram Bot:** `python-telegram-bot` (v20+)
-- **Deployment:** Docker Compose
-
----
-
-## Deployment
-
-### Requirements
-
-- **OS:** Ubuntu 24.04 (or any recent Ubuntu/Debian-based system)
-- **Installed on VM:**
-  - Docker & Docker Compose
-  - `sudo` access (for log reading and firewall rules)
-  - A Telegram bot token from [@BotFather](https://t.me/BotFather)
-
-### Step-by-Step
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/<your-username>/se-toolkit-hackathon.git
-   cd se-toolkit-hackathon
-   ```
-
-2. **Create data directory**
-   ```bash
-   mkdir -p data
-   ```
-
-3. **Configure environment**
-   ```bash
-   cp .env.example .env
-   ```
-   Edit `.env`:
-   ```env
-   BOT_TOKEN=your:telegram_bot_token
-   TEST_MODE=true
-   TEST_CHAT_ID=your_telegram_chat_id
-   BLOCK_THRESHOLD=5
-   DB_PATH=/app/data/sentinel.db
-   ```
-
-4. **Start services**
-   ```bash
-   docker compose up -d --build
-   ```
-
-5. **Access the product**
-   - **Web Dashboard:** `http://<VM_IP>:5000`
-   - **Telegram Bot:** Send `/start` to your bot
-
-6. **Switch to production** (optional)
-   - Set `TEST_MODE=false` in `.env`
-   - Add `--cap-add=NET_ADMIN` to the `worker` service in `docker-compose.yml` to enable auto-blocking via `ufw`/`iptables`
-   - Restart: `docker compose down && docker compose up -d`
+- **Testing:** pytest + pytest-asyncio, in-memory SQLite
+- **Type Checking:** mypy --strict
 
 ---
 
 ## Project Structure
 
 ```
-.
-├── app.py              # Flask web server + API
-├── worker.py           # Log parser + auto-block logic
-├── models.py           # Peewee database models
-├── bot/
-│   └── main.py         # Telegram bot handlers
-├── templates/          # Jinja2 HTML templates
-├── static/             # CSS, JS, images
-├── data/               # SQLite database (gitignored)
-├── Dockerfile
-├── docker-compose.yml
-├── .env.example
-├── LICENSE             # MIT License
-└── README.md
+src/
+├── core/                          # Domain logic (patterns, ABCs)
+│   ├── events.py                  # EventBroker, SecurityEvent (Observer)
+│   ├── detector.py                # ThresholdDetector (sliding window)
+│   ├── blocking.py                # FirewallStrategy ABC (Strategy)
+│   ├── repositories.py            # Alert dataclass, AlertRepository ABC
+│   └── services/
+│       └── block_service.py       # BlockService + BlockRepository ABC
+├── adapters/                      # External integrations
+│   ├── firewall/
+│   │   ├── ufw.py                 # UFWStrategy (production)
+│   │   └── noop.py                # NoOpStrategy (test mode)
+│   ├── parsers/
+│   │   └── ssh_auth.py            # SSHAuthLogParser (Template Method)
+│   ├── log_tail.py                # BaseLogParser + ParsedEntry
+│   └── telegram.py                # TelegramInputAdapter
+├── infrastructure/                # DB, models, config
+│   ├── db.py                      # init_database() helper
+│   └── models.py                  # Peewee models (Alert, BlockedIP)
+├── interfaces/                    # CLI, Telegram, Web entrypoints
+│   ├── commands/
+│   │   ├── handler.py             # CommandHandler, CommandContext
+│   │   ├── cli.py                 # CLIInputAdapter (stdin reader)
+│   │   └── factory.py             # create_command_handler()
+│   └── web/
+│       ├── app.py                 # Flask application factory
+│       ├── templates/
+│       │   └── dashboard.html     # Jinja2 dashboard
+│       └── static/
+│           └── style.css          # Dark theme
+├── utils/
+│   └── validation.py              # IP validator
+tests/
+├── conftest.py
+└── unit/
+    ├── test_events.py             # EventBroker (6 tests)
+    ├── test_detector.py           # ThresholdDetector (6 tests)
+    ├── test_blocking.py           # FirewallStrategy (12 tests)
+    ├── test_block_service.py      # BlockService (6 tests)
+    ├── test_repositories.py       # PeeweeAlertRepository (8 tests)
+    ├── test_command_handler.py    # CommandHandler + CLI (11 tests)
+    ├── test_telegram_adapter.py   # TelegramInputAdapter (7 tests)
+    ├── test_parsers.py            # SSHAuthLogParser (11 tests)
+    └── test_web_dashboard.py      # Flask dashboard (7 tests)
+docs/
+├── progress/
+│   └── IMPLEMENTATION_LOG.md      # Per-service implementation log
+└── services/                      # Per-service documentation
+    ├── README.md                  # Index + wiring guide
+    ├── 01-event-broker/
+    ├── 02-threshold-detector/
+    ├── 03-firewall-strategy/
+    ├── 04-alert-repository/
+    ├── 05-command-handler/
+    ├── 06-telegram-adapter/
+    ├── 07-ssh-log-parser/
+    └── 08-flask-dashboard/
 ```
+
+---
+
+## Quality Metrics
+
+| Metric | Value |
+|--------|-------|
+| **Unit tests** | 74 passing |
+| **Type checking** | mypy --strict clean (28 source files) |
+| **Services implemented** | 8/8 |
+| **Design patterns used** | 7 |
+
+---
+
+## Development
+
+### Setup
+
+```bash
+git clone https://github.com/<your-username>/se-toolkit-hackathon.git
+cd se-toolkit-hackathon
+python -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"
+```
+
+### Run Tests
+
+```bash
+pytest tests/unit/ -v
+```
+
+### Type Check
+
+```bash
+mypy src/ --strict
+```
+
+### Service Documentation
+
+Per-service documentation is in [`docs/services/`](docs/services/README.md).
+Implementation progress is tracked in [`docs/progress/IMPLEMENTATION_LOG.md`](docs/progress/IMPLEMENTATION_LOG.md).
