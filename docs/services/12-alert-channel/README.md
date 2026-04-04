@@ -2,7 +2,7 @@
 
 **Pattern:** Strategy
 **Files:** `src/core/alerting/channel.py`, `src/adapters/alerting/console.py`
-**Tests:** `tests/unit/alerting/test_alert_channel.py` (stubbed)
+**Tests:** `tests/unit/alerting/test_console_channel.py` (8 tests)
 
 ---
 
@@ -63,7 +63,6 @@ The default alert channel — writes formatted alerts to the console. Used in pr
 | Key | Default | Description |
 |-----|---------|-------------|
 | `use_stderr` | `False` | Write to stderr instead of stdout |
-| `colorize` | TTY auto | Add ANSI color codes (auto-detected) |
 
 ### Usage
 

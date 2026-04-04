@@ -21,7 +21,6 @@ class ConsoleChannel(AlertChannel):
 
     Config keys:
         use_stderr: If True, write to stderr instead of stdout.
-        colorize: If True, add ANSI color codes (default: True for TTY).
     """
 
     @property
@@ -46,7 +45,7 @@ class ConsoleChannel(AlertChannel):
 
         Args:
             event: The enriched event to display.
-            config: Optional config with ``use_stderr`` and ``colorize`` keys.
+            config: Optional config with ``use_stderr`` key.
 
         Returns:
             SendResult indicating success.

@@ -320,11 +320,13 @@ Tracks progress through the V1 and V2 implementation workflows.
 | 8. Attack Map component | — | Pending |
 | **V2 Total** | **36** | 🔄 In progress |
 
-### Grand Total: **110 tests passing**, `mypy --strict` clean
+### Grand Total: **144 tests passing**, `flake8` clean
 
 ### Deployment
 
-- **Deployed:** `se-toolkit-vm` via Docker Compose
+- **Deployed:** `se-toolkit-vm` via Docker Compose (3 services: worker, web, telegram)
 - **Dashboard:** `http://10.93.25.13:5000`
-- **Container:** `logsentinel` — tails real `/var/log/auth.log`
+- **Worker:** `logsentinel-worker` — tails real `/var/log/auth.log`
+- **Web:** `logsentinel-web` — Flask dashboard + REST API
+- **Telegram:** `logsentinel-telegram` — bot for alerts and commands
 - **Verified:** Simulated SSH attack detected, alerted, blocked, persisted, and displayed on dashboard

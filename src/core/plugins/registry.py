@@ -8,7 +8,6 @@ one broken plugin never silently breaks the registry.
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import Any, Dict, List, Optional, Type
 
 from src.core.plugins.parser_plugin import (
@@ -31,16 +30,9 @@ class ParserRegistry:
     instantiates a plugin by name with an injected config dict.
     """
 
-    def __init__(self, plugin_dirs: Optional[List[Path]] = None) -> None:
-        """Initialise an empty registry.
-
-        Args:
-            plugin_dirs: Directories to scan for plugin modules.
-                Currently unused — plugins are registered explicitly.
-                Reserved for future auto-discovery via ``importlib``.
-        """
+    def __init__(self) -> None:
+        """Initialise an empty registry."""
         self._plugins: Dict[str, Type[LogParserPlugin]] = {}
-        self._plugin_dirs = plugin_dirs or []
 
     def register(
         self, name: str, parser_cls: Type[LogParserPlugin]

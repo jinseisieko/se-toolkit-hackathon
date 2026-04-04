@@ -1,6 +1,6 @@
-# 15. Worker (Service Wiring)
+# 15. Worker (Log Monitoring Pipeline)
 
-**Pattern:** Composition + Application Entry Point
+**Pattern:** Composition + Pipeline
 **Files:** `src/worker.py`
 **Tests:** Integration-level (Docker Compose deployment)
 
@@ -8,7 +8,7 @@
 
 ## Purpose
 
-The main production entrypoint. Wires all LogSentinel services together into a coherent monitoring pipeline and runs the continuous log-monitoring loop.
+The core monitoring pipeline. Tails the auth log, detects brute-force threshold breaches, blocks offending IPs, enriches alerts with GeoIP, and stores everything in the shared SQLite database. **No web server, no CLI, no Telegram** — those run as separate containers.
 
 ---
 
@@ -35,12 +35,12 @@ The main production entrypoint. Wires all LogSentinel services together into a c
 │  publish()          │
 └────────┬────────────┘
          │
-    ┌────┴────────────────────┐
-    ▼                         ▼
-┌──────────────┐    ┌─────────────────┐
-│ BlockService │    │ on_security_event│
-│ handle_event │    │ (subscriber)     │
-└──────────────┘    └────────┬─────────┘
+    ┌────┴────────────────────────┐
+    ▼                             ▼
+┌──────────────┐    ┌─────────────────────┐
+│ BlockService │    │ on_security_event    │
+│ handle_event │    │ (subscriber)         │
+└──────────────┘    └────────┬─────────────┘
                              │
                     ┌────────┴────────┐
                     ▼                 ▼
@@ -54,6 +54,8 @@ The main production entrypoint. Wires all LogSentinel services together into a c
                               │ Collector    │
                               └─────────────┘
 ```
+
+All data is persisted to the shared SQLite database. The web service and Telegram bot read from the same database independently.
 
 ---
 
@@ -70,11 +72,8 @@ The main production entrypoint. Wires all LogSentinel services together into a c
 | 7 | BlockService | `src/core/services/block_service.py` |
 | 8 | AlertChannel (Console) | `src/adapters/alerting/console.py` |
 | 9 | ThresholdDetector | `src/core/detector.py` |
-| 10 | Event subscriber (enrich → block → alert → metric) | Inline in `worker.py` |
-| 11 | CommandHandler | `src/interfaces/commands/factory.py` |
-| 12 | Flask Dashboard | `src/interfaces/web/app.py` |
-| 13 | CLI Input Adapter (optional) | `src/interfaces/commands/cli.py` |
-| 14 | Log parser main loop | `SSHAuthPlugin.process_stream()` |
+| 10 | Event subscriber (persist → block → enrich → alert → metric) | Inline in `worker.py` |
+| 11 | Log parser main loop | `SSHAuthPlugin.process_stream()` |
 
 ---
 
@@ -88,24 +87,20 @@ All configuration comes from environment variables (via `.env`):
 | `LOG_PATH` | `/var/log/auth.log` | Log file to monitor |
 | `BLOCK_THRESHOLD` | `5` | Failed attempts before alert |
 | `FIREWALL_STRATEGY` | `noop` | `noop` or `ufw` |
-| `TEST_MODE` | `true` | Restricts destructive actions |
 | `GEOIP_PROVIDER` | `mock` | `mock` or `maxmind` |
-| `WEB_HOST` | `0.0.0.0` | Dashboard bind address |
-| `WEB_PORT` | `5000` | Dashboard port |
-| `CLI_MODE` | `true` | Enable interactive CLI commands |
 | `API_TOKEN` | `None` | Bearer token for block/unblock API |
 
 ---
 
 ## Concurrency Model
 
-| Thread | Purpose |
-|--------|---------|
-| **Main** | `process_stream()` — blocks on `tail -F`, calls `on_entry()` per parsed line |
-| **Web** | Flask development server in a daemon thread |
-| **CLI** | stdin reader (if `CLI_MODE=true`), daemon thread |
+The worker runs as a **single process, single thread**:
+- `process_stream()` blocks on `tail -F`, calling `on_entry()` synchronously per parsed line.
+- `on_entry()` records the attempt, which may trigger `ThresholdDetector` to publish a `SecurityEvent`.
+- The event subscriber runs synchronously in the same thread.
+- `asyncio` is used only for calling the async `AlertChannel.send()` — wrapped in `new_event_loop().run_until_complete()`.
 
-Signal handlers (`SIGINT`, `SIGTERM`) set a `threading.Event` to trigger graceful shutdown.
+Shutdown is triggered by `SIGINT`/`SIGTERM` which sets a `threading.Event` (used by `tail -F` subprocess termination).
 
 ---
 
@@ -128,7 +123,8 @@ def on_security_event(event: SecurityEvent) -> None:
 
 ## Design Decisions
 
-- **Single process, multiple threads:** The worker runs as one process with Flask and CLI in daemon threads. This keeps deployment simple (single Docker container).
+- **Pipeline-only responsibility:** The worker does one thing — monitor logs, detect threats, store alerts. Web, CLI, and Telegram are separate services that read the same data.
+- **Single process, single thread:** Keeps deployment simple (one Docker container for monitoring). No locks or queues needed.
 - **EventBroker as coordination hub:** All cross-service communication flows through the broker, making it easy to add new subscribers without touching the worker.
-- **Inline subscriber vs. dedicated service:** The `on_security_event` function is defined inline rather than as a separate class. This is intentional — it's the composition root, not a reusable component. If the pipeline grows more complex, it can be extracted into a `PipelineService`.
-- **Async event loop in sync context:** The alert channel uses `asyncio.new_event_loop()` + `run_until_complete()` because the worker is synchronous but `AlertChannel.send()` is async. This bridges the sync/async gap without converting the entire worker to asyncio.
+- **Inline subscriber:** The `on_security_event` function is defined inline rather than as a separate class. This is the composition root, not a reusable component.
+- **Sync/async bridge:** The alert channel uses `asyncio.new_event_loop()` + `run_until_complete()` because the worker is synchronous but `AlertChannel.send()` is async.

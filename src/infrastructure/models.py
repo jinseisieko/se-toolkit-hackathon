@@ -7,7 +7,7 @@ to keep ORM imports out of business logic.
 from __future__ import annotations
 
 import datetime
-from typing import Any, Dict
+from typing import Any
 
 from peewee import (  # type: ignore[import-untyped]
     BooleanField,
@@ -23,14 +23,6 @@ class BaseModel(Model):  # type: ignore[misc]
 
     class Meta:
         database: Any = None
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Serialise model to a plain dict (useful for JSON APIs)."""
-        return {
-            field_name: getattr(self, field_name)
-            for field_name in self._meta.sorted_field_names
-            if field_name != "id"
-        }
 
 
 class Alert(BaseModel):

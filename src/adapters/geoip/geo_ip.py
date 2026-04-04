@@ -70,9 +70,7 @@ class GeoIPEnricher(Enricher):
             raw_line=event.raw_line,
             user=event.user,
             geo=geo,
-            threat_intel=event.threat_intel,
             meta=event.meta,
-            custom=event.custom,
         )
 
     def _mock_lookup(self, ip_str: str) -> GeoLocation:

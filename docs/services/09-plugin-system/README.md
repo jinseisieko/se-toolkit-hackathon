@@ -80,8 +80,6 @@ plugin = registry.create("ssh_auth", {"log_path": "/var/log/auth.log"})
 names = registry.list_available()  # → ["ssh_auth"]
 ```
 
-### Error Handling
-
 | Exception | When |
 |-----------|------|
 | `PluginNotFoundError` | `create()` called with unregistered name |

@@ -1,17 +1,16 @@
-"""LogSentinel V2 worker — main entrypoint.
+"""LogSentinel worker — core monitoring pipeline.
 
-Wires all services together and runs the monitoring pipeline:
-1. Parse auth.log via SSHAuthPlugin
-2. Enrich events with GeoIP
-3. Detect threshold breaches
-4. Block IPs via firewall strategy
-5. Send alerts via notification channels
-6. Serve web dashboard + metrics endpoint
+Tails the auth log, detects brute-force threshold breaches,
+blocks offending IPs, enriches alerts with GeoIP, and stores
+everything in the shared SQLite database.  Console alerts are
+written to stdout/stderr for log consumption.
+
+No web server, no CLI, no Telegram — those run as separate
+services that share the SQLite volume.
 """
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import os
 import signal
@@ -20,7 +19,6 @@ import threading
 import time
 from datetime import datetime, timezone
 from ipaddress import IPv4Address
-from typing import Optional
 
 from dotenv import load_dotenv
 from peewee import SqliteDatabase
@@ -39,12 +37,13 @@ from src.core.observability.metrics import MetricsCollector
 from src.core.plugins.parser_plugin import ParsedEntry
 from src.core.plugins.registry import ParserRegistry
 from src.core.repositories import PeeweeAlertRepository
-from src.core.services.block_service import BlockRepository, BlockService, BlockedIPRecord
+from src.core.services.block_service import (
+    BlockRepository,
+    BlockService,
+    BlockedIPRecord,
+)
 from src.infrastructure.db import init_database
 from src.infrastructure.models import BlockedIP
-from src.interfaces.commands.cli import CLIInputAdapter
-from src.interfaces.commands.factory import create_command_handler
-from src.interfaces.web.app import create_app
 
 load_dotenv()
 
@@ -66,37 +65,49 @@ class PeeweeBlockRepo(BlockRepository):
         self, ip: str, reason: str, strategy: str
     ) -> BlockedIPRecord:
         record = BlockedIP.create(
-            ip=ip, reason=reason, strategy=strategy,
+            ip=ip,
+            reason=reason,
+            strategy=strategy,
             blocked_at=datetime.now(timezone.utc),
         )
         return BlockedIPRecord(
-            id=record.id, ip=record.ip,
+            id=record.id,
+            ip=record.ip,
             blocked_at=record.blocked_at,
-            reason=record.reason, strategy=record.strategy,
+            reason=record.reason,
+            strategy=record.strategy,
             is_blocked=record.is_blocked,
         )
 
-    def get_by_ip(self, ip: str) -> Optional[BlockedIPRecord]:
+    def get_by_ip(self, ip: str) -> BlockedIPRecord | None:
         try:
             rec = BlockedIP.get(BlockedIP.ip == ip)
         except BlockedIP.DoesNotExist:
             return None
         return BlockedIPRecord(
-            id=rec.id, ip=rec.ip,
+            id=rec.id,
+            ip=rec.ip,
             blocked_at=rec.blocked_at,
-            reason=rec.reason, strategy=rec.strategy,
+            reason=rec.reason,
+            strategy=rec.strategy,
             is_blocked=rec.is_blocked,
         )
 
     def mark_blocked(self, record_id: int) -> bool:
-        return BlockedIP.update(is_blocked=True).where(
-            BlockedIP.id == record_id
-        ).execute() > 0
+        return (
+            BlockedIP.update(is_blocked=True)
+            .where(BlockedIP.id == record_id)
+            .execute()
+            > 0
+        )
 
     def mark_unblocked(self, record_id: int) -> bool:
-        return BlockedIP.update(is_blocked=False).where(
-            BlockedIP.id == record_id
-        ).execute() > 0
+        return (
+            BlockedIP.update(is_blocked=False)
+            .where(BlockedIP.id == record_id)
+            .execute()
+            > 0
+        )
 
 
 # ── Configuration ────────────────────────────────────────────
@@ -110,11 +121,7 @@ class Config:
         self.log_path = os.getenv("LOG_PATH", "/var/log/auth.log")
         self.block_threshold = int(os.getenv("BLOCK_THRESHOLD", "5"))
         self.firewall_strategy = os.getenv("FIREWALL_STRATEGY", "noop")
-        self.test_mode = os.getenv("TEST_MODE", "true").lower() == "true"
         self.geoip_provider = os.getenv("GEOIP_PROVIDER", "mock")
-        self.web_host = os.getenv("WEB_HOST", "0.0.0.0")
-        self.web_port = int(os.getenv("WEB_PORT", "5000"))
-        self.cli_mode = os.getenv("CLI_MODE", "true").lower() == "true"
         self.api_token = os.getenv("API_TOKEN") or None
 
 
@@ -122,15 +129,15 @@ class Config:
 
 
 class Worker:
-    """Main LogSentinel worker — wires all services together."""
+    """Core monitoring pipeline — runs until SIGINT/SIGTERM."""
 
     def __init__(self) -> None:
         self.config = Config()
         self._shutdown = threading.Event()
 
     def run(self) -> None:
-        """Start all services and block until shutdown."""
-        logger.info("Starting LogSentinel V2 worker")
+        """Start all pipeline stages and block until shutdown."""
+        logger.info("Starting LogSentinel worker")
         logger.info("  DB: %s", self.config.db_path)
         logger.info("  Log: %s", self.config.log_path)
         logger.info("  Firewall: %s", self.config.firewall_strategy)
@@ -141,7 +148,9 @@ class Worker:
             signal.signal(sig, lambda *_: self._shutdown.set())
 
         # 1. Database
-        os.makedirs(os.path.dirname(self.config.db_path) or ".", exist_ok=True)
+        os.makedirs(
+            os.path.dirname(self.config.db_path) or ".", exist_ok=True
+        )
         db = SqliteDatabase(self.config.db_path)
         init_database(db)
         alert_repo = PeeweeAlertRepository(db)
@@ -161,7 +170,7 @@ class Worker:
         # 5. Enrichment pipeline
         geoip = GeoIPEnricher(
             provider=self.config.geoip_provider,
-            db_path=None,  # MaxMind not available in test mode
+            db_path=None,
         )
 
         # 6. Firewall strategy
@@ -186,16 +195,19 @@ class Worker:
         )
         detector.register_broker(broker)
 
-        # 10. Wire: event → enrich → block → alert → metric
+        # 10. Wire: event → persist → block → enrich → alert
         def on_security_event(event: SecurityEvent) -> None:
             logger.warning(
                 "BREACH: %s — %d attempts from %s",
-                event.service, event.attempt_count, event.ip,
+                event.service,
+                event.attempt_count,
+                event.ip,
             )
 
             # Persist to database
             alert_repo.create(
-                ip=event.ip, attempts=event.attempt_count,
+                ip=event.ip,
+                attempts=event.attempt_count,
                 service=event.service,
             )
 
@@ -204,7 +216,10 @@ class Worker:
             metrics.record_block(
                 event.ip,
                 strategy.__class__.__name__,
-                f"{event.service} brute-force: {event.attempt_count}",
+                (
+                    f"{event.service} brute-force: "
+                    f"{event.attempt_count}"
+                ),
             )
 
             # Enrich
@@ -226,6 +241,8 @@ class Worker:
 
             # Alert
             try:
+                import asyncio
+
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
                 result = loop.run_until_complete(
@@ -239,52 +256,10 @@ class Worker:
 
         broker.subscribe(on_security_event)
 
-        # 11. Command handler
-        cmd_handler = create_command_handler(block_svc, alert_repo)
-
-        # 12. Web dashboard
-        app = create_app(alert_repo=alert_repo, api_token=self.config.api_token)
-        app.config["TESTING"] = True
-
-        # Add /metrics endpoint
-        @app.route("/metrics")
-        def metrics_endpoint():
-            from flask import Response
-            return Response(metrics.render(), mimetype="text/plain")
-
-        def run_web() -> None:
-            import werkzeug.serving
-            werkzeug.serving._log = lambda *a: None  # silence Flask logs
-            app.run(
-                host=self.config.web_host,
-                port=self.config.web_port,
-                use_reloader=False,
-            )
-
-        web_thread = threading.Thread(target=run_web, daemon=True)
-        web_thread.start()
-        logger.info(
-            "Web dashboard: http://%s:%s",
-            self.config.web_host, self.config.web_port,
-        )
-
-        # 13. CLI test mode
-        if self.config.cli_mode:
-            cli = CLIInputAdapter()
-            logger.info("CLI test mode ready. Type '/status' to begin.")
-
-            def run_cli() -> None:
-                cli.start_listening(cmd_handler)
-                self._shutdown.set()
-
-            cli_thread = threading.Thread(target=run_cli, daemon=True)
-            cli_thread.start()
-
-        # 14. Log parser (main loop — blocks until shutdown)
+        # 11. Log parser (main loop — blocks until shutdown)
         parser = registry.create("ssh_auth", {
             "log_path": self.config.log_path,
         })
-        assert isinstance(parser, SSHAuthPlugin), "Expected SSHAuthPlugin"
 
         def on_entry(entry: ParsedEntry) -> None:
             start = time.monotonic()
@@ -292,7 +267,10 @@ class Worker:
             duration = time.monotonic() - start
             metrics.observe_processing_time(parser.name, duration)
 
-        logger.info("Monitoring %s (press Ctrl+C to stop)", self.config.log_path)
+        logger.info(
+            "Monitoring %s (press Ctrl+C to stop)",
+            self.config.log_path,
+        )
 
         try:
             parser.process_stream(self.config.log_path, callback=on_entry)

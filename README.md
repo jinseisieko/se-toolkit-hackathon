@@ -43,8 +43,8 @@ LogSentinel tails `/var/log/auth.log` in real time, detects brute-force patterns
 - **JSON API** — `/api/alerts`, `/api/blocked` endpoints for programmatic access
 - **Prometheus Metrics** — `/metrics` endpoint with alert counts, block counts, processing times
 - **Plugin System** — `LogParserPlugin` ABC + `ParserRegistry` for adding new log sources
-- **CLI Test Mode** — Interactive stdin-based command interface for safe development
-- **Docker Compose** — Single container deployment, monitors host auth.log via volume mount
+- **Telegram Bot** — Chat-based alerts and admin commands via `/status`, `/block`, `/unblock`
+- **Docker Compose** — Three independent containers (worker, web, telegram) sharing a SQLite volume
 
 ---
 
@@ -68,28 +68,23 @@ tail /var/log/auth.log → parse SSH failures → count per IP
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────┐
-│                   Ubuntu VM                     │
-│                                                 │
-│  ┌───────────────────────────────────────────┐  │
-│  │          LogSentinel Container            │  │
-│  │                                           │  │
-│  │  ┌─────────┐  ┌──────────┐  ┌─────────┐  │  │
-│  │  │  Flask  │  │  Worker  │  │ Metrics │  │  │
-│  │  │ (Web)   │  │ (Parser) │  │ (/metrics)│ │  │
-│  │  └────┬────┘  └────┬─────┘  └────┬────┘  │  │
-│  │       │             │              │       │  │
-│  │       └─────────────┼──────────────┘       │  │
-│  │                     │                      │  │
-│  │            ┌────────▼────────┐             │  │
-│  │            │  SQLite (DB)    │             │  │
-│  │            │  /app/data/     │             │  │
-│  │            └─────────────────┘             │  │
-│  └───────────────────────────────────────────┘  │
-│                                                 │
-│  Volume: /var/log/auth.log → /var/log/auth.log  │
-│  Port:   0.0.0.0:5000 → 5000                    │
-└─────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────┐
+│                  Ubuntu VM                         │
+│                                                    │
+│  ┌─────────────────────────────────────────────┐  │
+│  │         docker compose                       │  │
+│  │                                              │  │
+│  │  worker ──writes──┐                          │  │
+│  │                   ▼                           │  │
+│  │  web    ◄─reads── SQLite ◄─polls── telegram  │  │
+│  │  ▲                                             │  │
+│  │  │ calls REST API ────────────────────┘       │  │
+│  └─────────────────────────────────────────────┘  │
+│                                                    │
+│  Volume: /var/log/auth.log → worker container     │
+│  Volume: ./data → shared SQLite (all containers)  │
+│  Port:   0.0.0.0:5000 → 5000 (web)                │
+└───────────────────────────────────────────────────┘
 ```
 
 ### Design Patterns
@@ -126,11 +121,20 @@ docker compose up --build -d
 ### Manage
 
 ```bash
-docker compose logs -f          # Follow logs
-docker compose down             # Stop
-docker compose restart          # Restart
+docker compose logs -f          # Follow all logs
+docker compose logs -f worker   # Follow worker only
+docker compose down             # Stop all services
+docker compose restart          # Restart all
 docker compose up --build -d    # Update to latest code
 ```
+
+### Services
+
+| Service | Purpose | Port |
+|---------|---------|------|
+| **worker** | Tails auth.log, detects, blocks, stores | — |
+| **web** | Dashboard + REST API + `/metrics` | 5000 |
+| **telegram** | Telegram bot for alerts + commands | — |
 
 ### Configuration
 
@@ -142,8 +146,10 @@ docker compose up --build -d    # Update to latest code
 | `FIREWALL_STRATEGY` | `noop` | `noop` (log only) or `ufw` (real blocking) |
 | `GEOIP_PROVIDER` | `mock` | `mock` (deterministic test data) or `maxmind` (requires .mmdb) |
 | `WEB_PORT` | `5000` | Dashboard port |
-| `CLI_MODE` | `false` | Enable interactive stdin commands |
-| `TEST_MODE` | `true` | Restrict destructive actions |
+| `API_TOKEN` | *(empty)* | Bearer token for block/unblock API |
+| `TELEGRAM_BOT_TOKEN` | *(empty)* | Telegram bot token from BotFather |
+| `TELEGRAM_TEST_CHAT_ID` | *(empty)* | Restrict bot to one chat (optional) |
+| `WORKER_API_URL` | `http://web:5000` | Web service URL for Telegram bot |
 
 ---
 
@@ -213,15 +219,17 @@ logsentinel_parse_duration_seconds{parser="ssh_auth",quantile="avg"} 0.005155
 
 ```
 src/
+├── worker.py                      # Main entrypoint — log monitoring pipeline
+├── web.py                         # Standalone Flask web service
 ├── core/                          # Domain logic (patterns, ABCs)
-│   ├── plugins/                   # Plugin system (V2)
+│   ├── plugins/                   # Plugin system
 │   │   ├── parser_plugin.py       # LogParserPlugin ABC, ParsedEntry
 │   │   └── registry.py            # ParserRegistry (Factory)
-│   ├── enrichment/                # Enrichment pipeline (V2)
+│   ├── enrichment/                # Enrichment pipeline
 │   │   └── base.py                # Enricher ABC, EnrichedEvent, GeoLocation
-│   ├── alerting/                  # Alert channels (V2)
+│   ├── alerting/                  # Alert channels
 │   │   └── channel.py             # AlertChannel ABC
-│   ├── observability/             # Metrics (V2)
+│   ├── observability/             # Metrics
 │   │   └── metrics.py             # MetricsCollector (Prometheus format)
 │   ├── events.py                  # EventBroker (Observer)
 │   ├── detector.py                # ThresholdDetector (sliding window)
@@ -239,7 +247,8 @@ src/
 │   │   └── geo_ip.py              # GeoIPEnricher (mock + MaxMind)
 │   ├── alerting/
 │   │   └── console.py             # ConsoleChannel (CLI alerts)
-│   └── telegram.py                # TelegramInputAdapter
+│   ├── telegram.py                # TelegramInputAdapter (library)
+│   └── telegram_worker.py         # Standalone Telegram bot service
 ├── infrastructure/                # Database
 │   ├── db.py                      # init_database()
 │   └── models.py                  # Peewee models
@@ -254,7 +263,8 @@ src/
 │       └── static/style.css
 ├── utils/
 │   └── validation.py              # IP validator
-└── worker.py                      # Main entrypoint — wires all services
+└── static/
+    └── style.css                  # Dashboard CSS
 ```
 
 ---
@@ -263,8 +273,7 @@ src/
 
 | Metric | Value |
 |--------|-------|
-| **Unit tests** | 110 passing |
-| **Type checking** | mypy --strict clean |
+| **Unit tests** | 144 passing |
 | **Linting** | flake8 clean |
 | **Source files** | 40+ |
 | **Design patterns** | 7 |
@@ -273,7 +282,6 @@ src/
 
 ```bash
 pytest tests/unit/ -v
-mypy src/ --strict
 ```
 
 ---

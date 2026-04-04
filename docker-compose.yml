@@ -1,17 +1,39 @@
 services:
-  logsentinel:
+  worker:
     build: .
-    container_name: logsentinel
+    container_name: logsentinel-worker
     command: python -m src.worker
     volumes:
       - /var/log/auth.log:/var/log/auth.log:ro
       - ./data:/app/data
     env_file: .env
-    ports:
-      - "5000:5000"
     restart: unless-stopped
     logging:
       driver: json-file
       options:
         max-size: "10m"
         max-file: "3"
+
+  web:
+    build: .
+    container_name: logsentinel-web
+    command: python -m src.web
+    volumes:
+      - ./data:/app/data
+    env_file: .env
+    ports:
+      - "${WEB_PORT:-5000}:${WEB_PORT:-5000}"
+    depends_on:
+      - worker
+    restart: unless-stopped
+
+  telegram:
+    build: .
+    container_name: logsentinel-telegram
+    command: python -m src.adapters.telegram_worker
+    volumes:
+      - ./data:/app/data
+    env_file: .env
+    depends_on:
+      - web
+    restart: unless-stopped

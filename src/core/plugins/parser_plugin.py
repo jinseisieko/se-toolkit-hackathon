@@ -108,14 +108,16 @@ class LogParserPlugin(ABC):
             or ``None`` if the line should be ignored.
         """
 
-    @abstractmethod
     def get_indicators(self) -> List[DetectionRule]:
         """Return detection rules this plugin supports.
 
+        Override to expose patterns and thresholds for the plugin.
+        The default implementation returns an empty list.
+
         Returns:
-            A list of ``DetectionRule`` instances describing the patterns
-            and thresholds this plugin can detect.
+            A list of ``DetectionRule`` instances.
         """
+        return []
 
 
 class PluginAlreadyRegisteredError(Exception):

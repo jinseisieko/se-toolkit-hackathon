@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Demo: LogSentinel V2 services working together.
 
-Simulates the full production workflow:
+Simulates the core monitoring pipeline:
 1. Database initialization
 2. Plugin registry + SSHAuthPlugin
 3. GeoIP enrichment
@@ -9,10 +9,10 @@ Simulates the full production workflow:
 5. Auto-block via NoOpStrategy (test mode)
 6. Console alert channel
 7. Metrics collection
-8. Web dashboard + JSON API
-9. Command handler (status, block, unblock)
 
-No real auth.log, external GeoIP, or firewall access needed.
+The web dashboard and Telegram bot run as separate services
+in production (docker-compose).  They are tested independently
+via their own unit tests.
 """
 
 from __future__ import annotations
@@ -40,9 +40,6 @@ from src.core.services.block_service import (
     BlockedIPRecord,
 )
 from src.infrastructure.db import init_database
-from src.interfaces.commands.factory import create_command_handler
-from src.interfaces.commands.handler import CommandContext
-from src.interfaces.web.app import create_app
 
 
 # ── Helpers ───────────────────────────────────────────────────
@@ -87,7 +84,7 @@ class DemoBlockRepo(BlockRepository):
 
 def main() -> None:
     print("=" * 60)
-    print("  LogSentinel V2 — Service Demonstration")
+    print("  LogSentinel V2 — Monitoring Pipeline Demonstration")
     print("=" * 60)
 
     # ── 1. Database ───────────────────────────────────────────
@@ -95,19 +92,19 @@ def main() -> None:
     db = SqliteDatabase(":memory:")
     init_database(db)
     alert_repo = PeeweeAlertRepository(db)
-    print("\n[1/9] Database initialized (in-memory SQLite)")
+    print("\n[1/7] Database initialized (in-memory SQLite)")
 
     # ── 2. Plugin Registry + SSHAuthPlugin ────────────────────
 
     registry = ParserRegistry()
     registry.register("ssh_auth", SSHAuthPlugin)
     parser = registry.create("ssh_auth", {})
-    print(f"[2/9] ParserRegistry ready — plugins: {registry.list_available()}")
+    print(f"[2/7] ParserRegistry ready — plugins: {registry.list_available()}")
 
     # ── 3. GeoIP Enrichment ───────────────────────────────────
 
     geoip = GeoIPEnricher(provider="mock")
-    print("[3/9] GeoIPEnricher ready (mock provider)")
+    print("[3/7] GeoIPEnricher ready (mock provider)")
 
     # ── 4. Event Broker ───────────────────────────────────────
 
@@ -122,38 +119,26 @@ def main() -> None:
         )
 
     broker.subscribe(event_logger)
-    print("[4/9] EventBroker ready with subscriber")
+    print("[4/7] EventBroker ready with subscriber")
 
     # ── 5. Threshold Detector ─────────────────────────────────
 
     detector = ThresholdDetector(threshold=3, window_seconds=300)
     detector.register_broker(broker)
-    print("[5/9] ThresholdDetector ready (threshold=3, window=300s)")
+    print("[5/7] ThresholdDetector ready (threshold=3, window=300s)")
 
     # ── 6. Firewall Strategy + Block Service ──────────────────
 
     block_repo = DemoBlockRepo()
     strategy = NoOpStrategy()
     block_svc = BlockService(strategy=strategy, repo=block_repo)
-    print("[6/9] NoOpStrategy + BlockService ready (test mode)")
+    print("[6/7] NoOpStrategy + BlockService ready (test mode)")
 
-    # ── 7. Console Alert Channel ──────────────────────────────
+    # ── 7. Console Alert Channel + Metrics ────────────────────
 
     alert_channel = ConsoleChannel()
-    print(f"[7/9] ConsoleChannel ready (name={alert_channel.name!r})")
-
-    # ── 8. Metrics Collector ──────────────────────────────────
-
     metrics = MetricsCollector()
-    print("[8/9] MetricsCollector ready")
-
-    # ── 9. Web Dashboard + Command Handler ────────────────────
-
-    app = create_app(alert_repo=alert_repo)
-    app.config["TESTING"] = True
-
-    cmd_handler = create_command_handler(block_svc, alert_repo)
-    print("[9/9] Flask dashboard + CommandHandler ready")
+    print("[7/7] ConsoleChannel + MetricsCollector ready")
 
     # ── Wire: event → persist → block → enrich → alert ───────
 
@@ -196,9 +181,9 @@ def main() -> None:
     print("-" * 60)
 
     fake_log_lines = [  # fmt: off
-        "Apr  4 12:00:01 server sshd[1001]: Failed password for root from 192.0.2.1 port 22 ssh2",
-        "Apr  4 12:00:05 server sshd[1002]: Failed password for root from 192.0.2.1 port 22 ssh2",
-        "Apr  4 12:00:10 server sshd[1003]: Failed password for root from 192.0.2.1 port 22 ssh2",
+        "Apr  4 12:00:01 server sshd[1001]: Failed password for root from 192.0.2.1 port 22 ssh2",  # noqa: E501
+        "Apr  4 12:00:05 server sshd[1002]: Failed password for root from 192.0.2.1 port 22 ssh2",  # noqa: E501
+        "Apr  4 12:00:10 server sshd[1003]: Failed password for root from 192.0.2.1 port 22 ssh2",  # noqa: E501
         "Apr  4 12:01:01 server sshd[1004]: Failed password for invalid user admin from 10.0.0.1 port 22 ssh2",  # noqa: E501
         "Apr  4 12:01:05 server sshd[1005]: Failed password for invalid user admin from 10.0.0.1 port 22 ssh2",  # noqa: E501
         "Apr  4 12:01:10 server sshd[1006]: Failed password for invalid user admin from 10.0.0.1 port 22 ssh2",  # noqa: E501
@@ -206,7 +191,7 @@ def main() -> None:
         "Apr  4 12:02:05 server sshd[1008]: Failed publickey for deploy from 172.16.0.5 port 22 ssh2",  # noqa: E501
         "Apr  4 12:02:10 server sshd[1009]: Failed publickey for deploy from 172.16.0.5 port 22 ssh2",  # noqa: E501
         "Apr  4 12:03:01 server sshd[1010]: Accepted password for root from 192.168.1.1 port 22 ssh2",  # noqa: E501
-        "Apr  4 12:03:05 server sshd[1011]: Connection closed by 192.168.1.1 port 22",
+        "Apr  4 12:03:05 server sshd[1011]: Connection closed by 192.168.1.1 port 22",  # noqa: E501
     ]  # fmt: on
 
     for line in fake_log_lines:
@@ -236,72 +221,6 @@ def main() -> None:
             f"{a.attempts} attempts  ({a.service})"
         )
 
-    # ── Command Handler ───────────────────────────────────────
-
-    admin_ctx = CommandContext(
-        user_id="demo",
-        is_test_mode=True,
-        allowed_actions={"status", "block", "unblock"},
-    )
-
-    print("\n" + "-" * 60)
-    print("  Command Handler demo:")
-    print("-" * 60)
-
-    results = [
-        ("status", [], admin_ctx),
-        ("unblock", ["192.0.2.1"], admin_ctx),
-        ("block", ["10.99.99.99", "manual demo block"], admin_ctx),
-        ("foobar", [], admin_ctx),
-    ]
-
-    for cmd, args, ctx in results:
-        r = cmd_handler.handle(cmd, args, ctx)
-        icon = "OK" if r.success else "FAIL"
-        print(
-            f"  /{cmd} {' '.join(args):30s} -> [{icon}] {r.message}"
-        )
-
-    # Permission denied test
-    viewer_ctx = CommandContext(
-        user_id="viewer",
-        is_test_mode=True,
-        allowed_actions={"status"},
-    )
-    r = cmd_handler.handle("unblock", ["192.0.2.1"], viewer_ctx)
-    icon = "OK" if r.success else "FAIL"
-    print(
-        f"  /unblock 192.0.2.1             (viewer)    -> "
-        f"[{icon}] {r.message}"
-    )
-
-    # ── Web Dashboard ─────────────────────────────────────────
-
-    print("\n" + "-" * 60)
-    print("  Web Dashboard demo:")
-    print("-" * 60)
-
-    with app.test_client() as client:
-        resp = client.get("/")
-        html = resp.data.decode()
-        print(f"\n  GET /  -> {resp.status_code}  ({len(html)} bytes HTML)")
-
-        resp = client.get("/api/alerts")
-        data = resp.get_json()
-        print(f"  GET /api/alerts  -> {resp.status_code}  ({len(data)} alerts)")
-        if data:
-            first = data[0]
-            print(
-                f"    Latest: {first['ip']} — "
-                f"{first['attempts']} attempts, blocked={first['blocked']}"
-            )
-
-        resp = client.get("/api/blocked")
-        data = resp.get_json()
-        print(f"  GET /api/blocked  -> {resp.status_code}  ({len(data)} blocked)")
-        for item in data:
-            print(f"    {item['ip']}")
-
     # ── Metrics Export ────────────────────────────────────────
 
     print("\n" + "-" * 60)
@@ -313,7 +232,7 @@ def main() -> None:
     # ── Summary ───────────────────────────────────────────────
 
     print("=" * 60)
-    print("  All 9 V2 services demonstrated successfully!")
+    print("  Pipeline demonstrated successfully!")
     print("=" * 60)
     print("""
   Service              Status
@@ -326,7 +245,10 @@ def main() -> None:
   6. BlockService      NoOpStrategy logged blocks (no real firewall)
   7. ConsoleChannel    Alerts written to stdout
   8. MetricsCollector  Prometheus metrics rendered
-  9. Flask Dashboard   HTML + JSON API rendered
+
+  Separate services (tested independently):
+  - Web dashboard      Flask + REST API (see src/web.py)
+  - Telegram bot       Chat bot (see src/adapters/telegram_worker.py)
 """)
 
 

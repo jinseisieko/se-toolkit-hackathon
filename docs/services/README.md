@@ -1,6 +1,28 @@
 # LogSentinel — Service Documentation
 
-Complete documentation for all 15 core services.
+Complete documentation for all 15 core services across 3 containers.
+
+## Architecture
+
+LogSentinel runs as **three independent containers** sharing a SQLite volume:
+
+```
+┌──────────────────────────────────────┐
+│         docker-compose                │
+│                                       │
+│  worker ──writes──┐                   │
+│                   ▼                    │
+│  web    ◄─reads── SQLite ◄─polls── tg │
+│  ▲                                    │
+│  │ calls REST API ────────────┘       │
+└──────────────────────────────────────┘
+```
+
+| Service | Purpose | Entry Point |
+|---------|---------|-------------|
+| **worker** | Tails auth.log, detects, blocks, stores | `src/worker.py` |
+| **web** | Dashboard + REST API + metrics | `src/web.py` |
+| **telegram** | Telegram bot for alerts + admin commands | `src/adapters/telegram_worker.py` |
 
 ---
 
@@ -24,46 +46,48 @@ Complete documentation for all 15 core services.
 | 9 | [ParserRegistry + LogParserPlugin](09-plugin-system/) | Factory + Strategy | 11 | [README](09-plugin-system/README.md) |
 | 10 | [SSHAuthPlugin](10-ssh-auth-plugin/) | Strategy | 17 | [README](10-ssh-auth-plugin/README.md) |
 | 11 | [GeoIPEnricher](11-geoip-enricher/) | Strategy | 8 | [README](11-geoip-enricher/README.md) |
-| 12 | [AlertChannel + ConsoleChannel](12-alert-channel/) | Strategy | — | [README](12-alert-channel/README.md) |
-| 13 | [MetricsCollector](13-observability/) | Collector | — | [README](13-observability/README.md) |
-| 14 | [Enrichment Pipeline](14-enrichment-pipeline/) | Strategy + Pipeline | — | [README](14-enrichment-pipeline/README.md) |
+| 12 | [AlertChannel + ConsoleChannel](12-alert-channel/) | Strategy | 8 | [README](12-alert-channel/README.md) |
+| 13 | [MetricsCollector](13-observability/) | Collector | 12 | [README](13-observability/README.md) |
+| 14 | [Enrichment Pipeline](14-enrichment-pipeline/) | Strategy + Pipeline | 8 | [README](14-enrichment-pipeline/README.md) |
 | 15 | [Worker](15-worker/) | Composition | — | [README](15-worker/README.md) |
 
-**Total:** 110+ tests across V1 and V2 services.
+**Total:** 144 tests across all services.
 
 ---
 
 ## Architecture Overview
 
 ```
-src/core/            → Observer (EventBroker), Strategy (Firewall ABC, Enricher ABC),
+src/                 → Worker entrypoint (log tailing pipeline)
+src/web.py           → Standalone Flask web service
+src/core/            → Observer (EventBroker), Strategy (Firewall, Enricher),
                        Repository ABCs, Plugin ABC (LogParserPlugin), MetricsCollector
 src/core/plugins/    → ParserRegistry (Factory), LogParserPlugin ABC, ParsedEntry (V2)
-src/core/enrichment/ → EnrichedEvent, GeoLocation, ThreatInfo, Enricher ABC
+src/core/enrichment/ → EnrichedEvent, GeoLocation, Enricher ABC
 src/core/alerting/   → AlertChannel ABC, SendResult
 src/core/observability/ → MetricsCollector (Prometheus format)
-src/adapters/        → UFW/NoOp strategies, SSHAuthPlugin, GeoIPEnricher, ConsoleChannel, Telegram bot
+src/adapters/        → UFW/NoOp strategies, SSHAuthPlugin, GeoIPEnricher,
+                       ConsoleChannel, TelegramInputAdapter, TelegramWorker
 src/interfaces/      → Command handler, CLI adapter, Flask dashboard
 src/infrastructure/  → Peewee models, DB init
 src/utils/           → IP validation
-tests/unit/          → 110+ tests across all services
+tests/unit/          → 144 tests across all services
 ```
 
 ---
 
 ## Wiring Everything Together
 
-The production wiring uses `SSHAuthPlugin` via `ParserRegistry`, `NoOpStrategy` for development, and `ConsoleChannel` for alerts:
+The production deployment uses three independent containers sharing a SQLite volume:
+
+```bash
+# docker-compose up starts all three:
+docker compose up --build -d
+```
+
+### Worker (`src/worker.py`) — Log Monitoring Pipeline
 
 ```python
-# Configuration
-import os
-from dotenv import load_dotenv
-from peewee import SqliteDatabase
-
-from src.infrastructure.db import init_database
-from src.core.repositories import PeeweeAlertRepository
-from src.core.services.block_service import BlockService
 from src.core.events import EventBroker
 from src.core.detector import ThresholdDetector
 from src.adapters.firewall.noop import NoOpStrategy
@@ -72,10 +96,7 @@ from src.adapters.alerting.console import ConsoleChannel
 from src.adapters.parsers.plugins.ssh_auth import SSHAuthPlugin
 from src.core.plugins.registry import ParserRegistry
 from src.core.observability.metrics import MetricsCollector
-from src.interfaces.commands.factory import create_command_handler
-from src.interfaces.web.app import create_app
-
-load_dotenv()
+from src.core.services.block_service import BlockService
 
 # 1. Database
 db = SqliteDatabase(os.getenv("DB_PATH", "data/sentinel.db"))
@@ -96,9 +117,8 @@ parser = registry.create("ssh_auth", {"log_path": "/var/log/auth.log"})
 # 5. Enrichment pipeline
 geoip = GeoIPEnricher(provider="mock")
 
-# 6. Firewall (swap UFWStrategy for NoOpStrategy in test mode)
+# 6. Firewall strategy
 strategy = NoOpStrategy()
-block_repo = ...  # implement BlockRepository (see Service 3)
 block_svc = BlockService(strategy=strategy, repo=block_repo)
 
 # 7. Alert channel
@@ -116,16 +136,26 @@ def on_security_event(event):
 
 broker.subscribe(on_security_event)
 
-# 10. Command handler
-cmd_handler = create_command_handler(block_svc, alert_repo)
-
-# 11. Log parser
+# 10. Log parser (blocks until shutdown)
 def on_entry(entry):
     detector.record_attempt(str(entry.ip), entry.timestamp)
 
 parser.process_stream("/var/log/auth.log", callback=on_entry)
+```
 
-# 12. Web dashboard
-app = create_app(alert_repo=alert_repo, api_token=os.getenv("API_TOKEN"))
+### Web Service (`src/web.py`) — Dashboard + REST API
+
+```python
+from src.interfaces.web.app import create_app
+from src.core.repositories import PeeweeAlertRepository
+
+app = create_app(alert_repo=repo, api_token=os.getenv("API_TOKEN"))
 app.run(host="0.0.0.0", port=5000)
+```
+
+### Telegram Bot (`src/adapters/telegram_worker.py`) — Chat Alerts
+
+```bash
+# Requires TELEGRAM_BOT_TOKEN in .env
+python -m src.adapters.telegram_worker
 ```

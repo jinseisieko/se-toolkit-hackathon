@@ -25,15 +25,13 @@ A frozen dataclass representing a parsed log entry with additional context:
 | `raw_line` | `str` | From `ParsedEntry` |
 | `user` | `Optional[str]` | From `ParsedEntry` |
 | `geo` | `Optional[GeoLocation]` | Added by `GeoIPEnricher` |
-| `threat_intel` | `Optional[ThreatInfo]` | Reserved for future threat intel enricher |
 | `meta` | `Dict[str, Any]` | From `ParsedEntry` |
-| `custom` | `Dict[str, Any]` | Reserved for custom enrichers |
 
 ### Factory Method
 
 ```python
 enriched = EnrichedEvent.from_parsed_entry(parsed_entry)
-# → EnrichedEvent with geo=None, threat_intel=None
+# → EnrichedEvent with geo=None
 ```
 
 ---
@@ -59,7 +57,7 @@ class Enricher(ABC):
 ```python
 event = EnrichedEvent.from_parsed_entry(entry)
 event = geoip_enricher.enrich(event)
-event = threat_enricher.enrich(event)
+event = threat_enricher.enrich(event)  # future
 ```
 
 ---
@@ -80,24 +78,8 @@ class GeoLocation:
 
 ---
 
-## ThreatInfo
-
-Reserved for future threat intelligence integration:
-
-```python
-@dataclass(frozen=True)
-class ThreatInfo:
-    is_known_attacker: bool
-    is_anonymous_proxy: bool
-    is_tor_exit_node: bool
-    risk_score: int          # 0 (clean) to 100 (malicious)
-    sources: list[str]       # ["abuseipdb", "virustotal", ...]
-```
-
----
-
 ## Design Decisions
 
 - **Frozen dataclasses:** All enrichment data structures are immutable (`frozen=True`), preventing accidental modification and making them safe to share across threads.
-- **Optional fields:** `geo`, `threat_intel`, and `custom` are all `Optional`, so the enrichment pipeline is fully incremental — you can run with zero enrichers.
+- **Optional fields:** `geo` is `Optional`, so the enrichment pipeline is fully incremental — you can run with zero enrichers.
 - **`from_parsed_entry` factory:** Single entry point for converting raw `ParsedEntry` to `EnrichedEvent`, ensuring consistent initialisation.

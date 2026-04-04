@@ -52,7 +52,6 @@ class BaseLogParser(ABC):
         self,
         file_path: str,
         callback: Callable[[ParsedEntry], None],
-        poll_interval: float = 0.5,
     ) -> None:
         """Tail a log file and call *callback* for each successfully parsed line.
 
@@ -61,7 +60,6 @@ class BaseLogParser(ABC):
         Args:
             file_path: Path to the log file.
             callback: Called with each ParsedEntry.
-            poll_interval: Seconds between tail checks (not used with -F).
         """
         logger.info("Starting log tail of %s", file_path)
 

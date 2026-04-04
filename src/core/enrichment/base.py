@@ -35,25 +35,6 @@ class GeoLocation:
 
 
 @dataclass(frozen=True)
-class ThreatInfo:
-    """Threat intelligence data for an IP address.
-
-    Attributes:
-        is_known_attacker: Whether the IP is on known attacker lists.
-        is_anonymous_proxy: Whether the IP is an anonymous proxy.
-        is_tor_exit_node: Whether the IP is a known Tor exit node.
-        risk_score: Risk score from 0 (clean) to 100 (malicious).
-        sources: List of threat intelligence sources consulted.
-    """
-
-    is_known_attacker: bool = False
-    is_anonymous_proxy: bool = False
-    is_tor_exit_node: bool = False
-    risk_score: int = 0
-    sources: list[str] = field(default_factory=list)
-
-
-@dataclass(frozen=True)
 class EnrichedEvent:
     """ParsedEntry enriched with contextual data.
 
@@ -65,9 +46,7 @@ class EnrichedEvent:
         raw_line: Original log line.
         user: Targeted username.
         geo: Geographic location data (None if not enriched).
-        threat_intel: Threat intelligence data (None if not enriched).
         meta: Original metadata from the parser.
-        custom: Additional enrichment data from custom enrichers.
     """
 
     ip: IPv4Address | IPv6Address
@@ -77,9 +56,7 @@ class EnrichedEvent:
     raw_line: str
     user: Optional[str] = None
     geo: Optional[GeoLocation] = None
-    threat_intel: Optional[ThreatInfo] = None
     meta: Dict[str, Any] = field(default_factory=dict)
-    custom: Dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def from_parsed_entry(cls, entry: ParsedEntry) -> "EnrichedEvent":
@@ -89,7 +66,7 @@ class EnrichedEvent:
             entry: The parsed log entry to convert.
 
         Returns:
-            A new EnrichedEvent with geo/threat_intel set to None.
+            A new EnrichedEvent with geo set to None.
         """
         return cls(
             ip=entry.ip,
