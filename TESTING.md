@@ -35,7 +35,7 @@ Success: no issues found in 40+ source files
 pytest tests/unit/ -v
 ```
 
-This runs **110+ tests** across 14 test files:
+This runs **144 tests** across 16 test files:
 
 ### Core Services (V1)
 
@@ -59,6 +59,8 @@ This runs **110+ tests** across 14 test files:
 | `plugins/test_parser_registry.py` | 11 | Plugin registration, config injection, isolation |
 | `plugins/test_ssh_plugin.py` | 17 | SSHAuthPlugin parsing, registry integration |
 | `enrichment/test_geo_ip.py` | 8 | GeoIPEnricher with mock/MaxMind providers |
+| `alerting/test_console_channel.py` | 8 | ConsoleChannel send, config, output format |
+| `observability/test_metrics.py` | 12 | MetricsCollector counters, rendering |
 
 ### Run a Single Service's Tests
 
@@ -76,6 +78,8 @@ pytest tests/unit/test_api_auth.py -v         # API Bearer auth
 pytest tests/unit/plugins/test_parser_registry.py -v  # ParserRegistry
 pytest tests/unit/plugins/test_ssh_plugin.py -v       # SSHAuthPlugin
 pytest tests/unit/enrichment/test_geo_ip.py -v        # GeoIPEnricher
+pytest tests/unit/alerting/test_console_channel.py -v # ConsoleChannel
+pytest tests/unit/observability/test_metrics.py -v    # MetricsCollector
 ```
 
 ---
