@@ -193,6 +193,12 @@ class Worker:
                 event.service, event.attempt_count, event.ip,
             )
 
+            # Persist to database
+            alert_repo.create(
+                ip=event.ip, attempts=event.attempt_count,
+                service=event.service,
+            )
+
             # Block
             block_svc.handle_event(event)
             metrics.record_block(
