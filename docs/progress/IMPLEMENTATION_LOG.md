@@ -303,8 +303,8 @@ Tracks progress through the V1 and V2 implementation workflows.
 | 5. CommandHandler + CLIInputAdapter | 11 | ✅ |
 | 6. TelegramInputAdapter | 7 | ✅ |
 | 7. SSHAuthLogParser | 11 | ✅ |
-| 8. Flask Dashboard | 7 | ✅ |
-| **V1 Total** | **74** | **✅** |
+| 8. Flask Dashboard (block/unblock UI + API) | 11 | ✅ |
+| **V1 Total** | **78** | **✅** |
 
 ### V2 — Platform Services
 
@@ -313,14 +313,14 @@ Tracks progress through the V1 and V2 implementation workflows.
 | 1. LogParserPlugin + ParserRegistry | 11 | ✅ |
 | 2. SSHAuthPlugin migration | 17 | ✅ |
 | 3. GeoIPEnricher + MaxMind adapter | 8 | ✅ |
-| 4. AlertChannel + ConsoleChannel | 0 | ✅ |
-| 5. MetricsCollector + /metrics endpoint | 0 | ✅ |
+| 4. AlertChannel + ConsoleChannel | 10 | ✅ |
+| 5. MetricsCollector + /metrics endpoint | 15 | ✅ |
 | 6. Worker entrypoint + Docker Compose deployment | — | ✅ |
-| 7. API v2 auth + RBAC | — | Pending |
+| 7. API v2 auth + RBAC (block/unblock + Bearer) | 9 | ✅ |
 | 8. Attack Map component | — | Pending |
-| **V2 Total** | **36** | 🔄 In progress |
+| **V2 Total** | **70** | 🔄 In progress |
 
-### Grand Total: **144 tests passing**, `flake8` clean
+### Grand Total: **148 tests passing**, `flake8` clean
 
 ### Deployment
 

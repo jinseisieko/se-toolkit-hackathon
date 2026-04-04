@@ -34,13 +34,23 @@ docker compose restart
 Navigate to **http://\<VM_IP\>:5000** in your browser.
 
 You'll see:
+- **API Token input** — Enter your `API_TOKEN` here and click Save (persisted in browser localStorage)
 - **Stats cards** — Total alerts, Active, Blocked
-- **Alerts table** — IP, attempts, service, time, status badge
+- **Alerts table** — IP, attempts, service, time, status badge, **Block/Unblock button** per row
+- **Blocked IPs section** — Dedicated table of blocked IPs with Unblock buttons
 - **Live polling** — updates every 10 seconds
 
 ---
 
-## 4. Block an IP (via API)
+## 4. Block an IP (via Dashboard)
+
+1. Open the dashboard at `http://<VM_IP>:5000`
+2. Enter your API token in the top input field and click **Save**
+3. Find the IP in the alerts table and click the **Block** button
+4. A green toast notification confirms the action
+5. The page auto-refreshes — the IP now shows as **Blocked**
+
+## 4b. Block an IP (via API)
 
 ```bash
 curl -X POST http://localhost:5000/api/block \
@@ -51,14 +61,18 @@ curl -X POST http://localhost:5000/api/block \
 
 Response:
 ```json
-{"blocked": true, "ip": "203.0.113.50", "reason": "brute-force detected"}
+{"blocked": true, "ip": "203.0.113.50", "reason": "brute-force detected", "message": "Blocked 203.0.113.50"}
 ```
-
-The IP appears in the dashboard as **Blocked** (red badge).
 
 ---
 
-## 5. Unblock an IP (via API)
+## 5. Unblock an IP (via Dashboard)
+
+1. Click the **Unblock** button next to any blocked IP in the alerts table or Blocked IPs section
+2. A green toast confirms the action
+3. The page auto-refreshes — the IP now shows as **Active**
+
+## 5b. Unblock an IP (via API)
 
 ```bash
 curl -X POST http://localhost:5000/api/unblock \
@@ -69,10 +83,8 @@ curl -X POST http://localhost:5000/api/unblock \
 
 Response:
 ```json
-{"blocked": false, "ip": "203.0.113.50"}
+{"blocked": false, "ip": "203.0.113.50", "message": "Unblocked 203.0.113.50"}
 ```
-
-The IP changes to **Active** (green badge) on the dashboard.
 
 ---
 
@@ -164,12 +176,16 @@ Restart: `docker compose up --build -d`
 | Task | Command / URL |
 |------|---------------|
 | Open dashboard | `http://<VM_IP>:5000` |
-| Block IP | `POST /api/block` with Bearer token |
-| Unblock IP | `POST /api/unblock` with Bearer token |
+| Block IP (dashboard) | Enter token → click **Block** button |
+| Block IP (API) | `POST /api/block` with Bearer token |
+| Unblock IP (dashboard) | Click **Unblock** button |
+| Unblock IP (API) | `POST /api/unblock` with Bearer token |
 | List alerts | `GET /api/alerts` |
 | List blocked | `GET /api/blocked` |
 | View metrics | `GET /metrics` |
-| Follow logs | `docker logs logsentinel -f` |
+| Follow worker logs | `docker logs logsentinel-worker -f` |
+| Follow web logs | `docker logs logsentinel-web -f` |
+| Follow telegram logs | `docker logs logsentinel-telegram -f` |
 | Restart | `docker compose restart` |
 | Stop | `docker compose down` |
 | Update | `git pull && docker compose up --build -d` |

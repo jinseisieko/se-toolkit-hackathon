@@ -39,7 +39,7 @@ LogSentinel tails `/var/log/auth.log` in real time, detects brute-force patterns
 - **Auto-Blocking** — Blocks offending IPs via `ufw` (production) or logs-only mode (test)
 - **GeoIP Enrichment** — Adds country/city metadata to alerts via mock or MaxMind provider
 - **SQLite Database** — Persists alerts and blocked IPs with Repository pattern for future PostgreSQL migration
-- **Web Dashboard** — Dark-themed UI with stats cards, alert table, and live polling
+- **Web Dashboard** — Dark-themed UI with stats cards, alert table with block/unblock buttons, blocked IPs section, and live polling
 - **JSON API** — `/api/alerts`, `/api/blocked` endpoints for programmatic access
 - **Prometheus Metrics** — `/metrics` endpoint with alert counts, block counts, processing times
 - **Plugin System** — `LogParserPlugin` ABC + `ParserRegistry` for adding new log sources
@@ -273,7 +273,7 @@ src/
 
 | Metric | Value |
 |--------|-------|
-| **Unit tests** | 144 passing |
+| **Unit tests** | 148 passing |
 | **Linting** | flake8 clean |
 | **Source files** | 40+ |
 | **Design patterns** | 7 |

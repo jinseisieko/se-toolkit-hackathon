@@ -2,7 +2,7 @@
 
 **Pattern:** Collector
 **Files:** `src/core/observability/metrics.py`
-**Tests:** `tests/unit/observability/test_metrics.py` (12 tests)
+**Tests:** `tests/unit/observability/test_metrics.py` (15 tests)
 
 ---
 

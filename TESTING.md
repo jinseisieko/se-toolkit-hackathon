@@ -23,7 +23,7 @@ pytest tests/unit/ -q && mypy src/ --strict
 
 Expected output:
 ```
-110+ passed in 0.XXs
+148 passed in 0.XXs
 Success: no issues found in 40+ source files
 ```
 
@@ -35,7 +35,7 @@ Success: no issues found in 40+ source files
 pytest tests/unit/ -v
 ```
 
-This runs **144 tests** across 16 test files:
+This runs **148 tests** across 15 test files:
 
 ### Core Services (V1)
 
@@ -49,8 +49,8 @@ This runs **144 tests** across 16 test files:
 | `test_command_handler.py` | 11 | Command routing, permissions, CLI parsing |
 | `test_telegram_adapter.py` | 7 | Chat auth, message handling, async reply |
 | `test_parsers.py` | 11 | SSH log regex, timestamps, IPv4/IPv6 |
-| `test_web_dashboard.py` | 7 | HTML rendering, JSON API, empty state |
-| `test_api_auth.py` | 9 | Bearer token auth for block/unblock endpoints |
+| `test_web_dashboard.py` | 11 | Dashboard HTML, token input, block/unblock buttons, JSON API |
+| `test_api_auth.py` | 9 | Bearer token auth, message responses for block/unblock |
 
 ### Plugin System (V2)
 
@@ -59,8 +59,8 @@ This runs **144 tests** across 16 test files:
 | `plugins/test_parser_registry.py` | 11 | Plugin registration, config injection, isolation |
 | `plugins/test_ssh_plugin.py` | 17 | SSHAuthPlugin parsing, registry integration |
 | `enrichment/test_geo_ip.py` | 8 | GeoIPEnricher with mock/MaxMind providers |
-| `alerting/test_console_channel.py` | 8 | ConsoleChannel send, config, output format |
-| `observability/test_metrics.py` | 12 | MetricsCollector counters, rendering |
+| `alerting/test_console_channel.py` | 10 | ConsoleChannel send, config, output format, icons |
+| `observability/test_metrics.py` | 15 | MetricsCollector counters, rendering, percentiles |
 
 ### Run a Single Service's Tests
 

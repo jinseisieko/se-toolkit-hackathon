@@ -2,7 +2,7 @@
 
 **Pattern:** Application Factory  
 **Files:** `src/interfaces/web/app.py`, `src/interfaces/web/templates/dashboard.html`, `src/static/style.css`  
-**Tests:** `tests/unit/test_web_dashboard.py` (7 tests)
+**Tests:** `tests/unit/test_web_dashboard.py` (11 tests), `tests/unit/test_api_auth.py` (9 tests)
 
 ---
 
@@ -39,7 +39,13 @@ curl -X POST http://localhost:5000/api/block \
   -H "Authorization: Bearer your-secret-token" \
   -H "Content-Type: application/json" \
   -d '{"ip": "10.0.0.1", "reason": "manual block"}'
-# → {"blocked": true, "ip": "10.0.0.1", "reason": "manual block"}
+# → {"blocked": true, "ip": "10.0.0.1", "reason": "manual block", "message": "Blocked 10.0.0.1"}
+
+curl -X POST http://localhost:5000/api/unblock \
+  -H "Authorization: Bearer your-secret-token" \
+  -H "Content-Type: application/json" \
+  -d '{"ip": "10.0.0.1"}'
+# → {"blocked": false, "ip": "10.0.0.1", "message": "Unblocked 10.0.0.1"}
 ```
 
 | Status | Meaning |
@@ -71,9 +77,12 @@ curl -X POST http://localhost:5000/api/block \
 
 ## Dashboard Features
 
+- **API Token input:** Password field with localStorage persistence; required for block/unblock actions.
 - **Stats cards:** Total alerts, active count, blocked count.
-- **Alerts table:** IP, attempts, service, last seen, status badge (Active/Blocked).
-- **Live polling:** JavaScript polls `/api/alerts` every 10 seconds to update stat counters.
+- **Alerts table:** IP, attempts, service, last seen, status badge, and **Block/Unblock button** per row.
+- **Blocked IPs section:** Dedicated table of blocked IPs with Unblock buttons.
+- **Live polling:** JavaScript polls `/api/alerts` and `/api/blocked` every 10 seconds to update stats and tables.
+- **Toast notifications:** Success/error toasts appear on block/unblock actions.
 - **Empty state:** Shows "No alerts yet. Waiting for activity…" when the DB is empty.
 - **Dark theme:** Uses CSS custom properties for easy theming.
 

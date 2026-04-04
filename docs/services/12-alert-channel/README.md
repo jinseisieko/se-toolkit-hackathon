@@ -2,7 +2,7 @@
 
 **Pattern:** Strategy
 **Files:** `src/core/alerting/channel.py`, `src/adapters/alerting/console.py`
-**Tests:** `tests/unit/alerting/test_console_channel.py` (8 tests)
+**Tests:** `tests/unit/alerting/test_console_channel.py` (10 tests)
 
 ---
 

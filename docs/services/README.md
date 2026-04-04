@@ -37,7 +37,7 @@ LogSentinel runs as **three independent containers** sharing a SQLite volume:
 | 5 | [CommandHandler + CLIInputAdapter](05-command-handler/) | Factory + Adapter | 11 | [README](05-command-handler/README.md) |
 | 6 | [TelegramInputAdapter](06-telegram-adapter/) | Adapter | 7 | [README](06-telegram-adapter/README.md) |
 | 7 | [SSHAuthLogParser](07-ssh-log-parser/) (V1 legacy) | Template Method | 11 | [README](07-ssh-log-parser/README.md) |
-| 8 | [Flask Dashboard](08-flask-dashboard/) | Application Factory | 16 | [README](08-flask-dashboard/README.md) |
+| 8 | [Flask Dashboard](08-flask-dashboard/) | Application Factory | 11 | [README](08-flask-dashboard/README.md) |
 
 ## V2 — Platform Services
 
@@ -46,12 +46,12 @@ LogSentinel runs as **three independent containers** sharing a SQLite volume:
 | 9 | [ParserRegistry + LogParserPlugin](09-plugin-system/) | Factory + Strategy | 11 | [README](09-plugin-system/README.md) |
 | 10 | [SSHAuthPlugin](10-ssh-auth-plugin/) | Strategy | 17 | [README](10-ssh-auth-plugin/README.md) |
 | 11 | [GeoIPEnricher](11-geoip-enricher/) | Strategy | 8 | [README](11-geoip-enricher/README.md) |
-| 12 | [AlertChannel + ConsoleChannel](12-alert-channel/) | Strategy | 8 | [README](12-alert-channel/README.md) |
-| 13 | [MetricsCollector](13-observability/) | Collector | 12 | [README](13-observability/README.md) |
+| 12 | [AlertChannel + ConsoleChannel](12-alert-channel/) | Strategy | 10 | [README](12-alert-channel/README.md) |
+| 13 | [MetricsCollector](13-observability/) | Collector | 15 | [README](13-observability/README.md) |
 | 14 | [Enrichment Pipeline](14-enrichment-pipeline/) | Strategy + Pipeline | 8 | [README](14-enrichment-pipeline/README.md) |
 | 15 | [Worker](15-worker/) | Composition | — | [README](15-worker/README.md) |
 
-**Total:** 144 tests across all services.
+**Total:** 148 tests across all services.
 
 ---
 
