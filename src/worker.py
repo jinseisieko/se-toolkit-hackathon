@@ -159,6 +159,23 @@ class Worker:
         # 2. Metrics
         metrics = MetricsCollector()
 
+        # Shared metrics file for web service to read
+        metrics_dir = os.path.dirname(self.config.db_path) or "."
+        metrics_path = os.path.join(metrics_dir, "metrics.prom")
+
+        def _flush_metrics_loop() -> None:
+            """Write metrics to shared file every 10 seconds."""
+            import time as _time
+            while True:
+                _time.sleep(10)
+                try:
+                    with open(metrics_path, "w") as f:
+                        f.write(metrics.render())
+                except OSError:
+                    pass
+
+        threading.Thread(target=_flush_metrics_loop, daemon=True).start()
+
         # 3. Event broker
         broker = EventBroker()
 

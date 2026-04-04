@@ -47,17 +47,29 @@ _app = create_app(alert_repo=_repo, api_token=API_TOKEN)
 
 @_app.route("/metrics")
 def _metrics_endpoint():  # type: ignore[no-untyped-def]
-    """Prometheus-format metrics."""
+    """Prometheus-format metrics read from shared file."""
     from flask import Response
-
-    metrics = _app.config.get("_metrics")  # type: ignore[attr-defined]
-    if metrics:
-        return Response(metrics.render(), mimetype="text/plain")
+    import os as _os
+    metrics_file = _os.path.join(
+        _os.path.dirname(DB_PATH) or ".", "metrics.prom"
+    )
+    try:
+        with open(metrics_file) as f:
+            content = f.read()
+        if content.strip():
+            return Response(content, mimetype="text/plain")
+    except FileNotFoundError:
+        pass
     return Response("# no metrics available\n", mimetype="text/plain")
 
 
 app = _app  # gunicorn-compatible WSGI entry point
 
 
-if __name__ == "__main__":
+def main() -> None:
+    """CLI entry point."""
     _app.run(host=WEB_HOST, port=WEB_PORT, use_reloader=False)
+
+
+if __name__ == "__main__":
+    main()
