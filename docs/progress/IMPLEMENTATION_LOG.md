@@ -292,6 +292,8 @@ Tracks progress through the V1 implementation workflow defined in `task_version_
 
 ## Summary
 
+### V1 — Core Services
+
 | Service | Tests | Status |
 |---------|-------|--------|
 | 1. EventBroker + SecurityEvent | 6 | ✅ |
@@ -302,6 +304,22 @@ Tracks progress through the V1 implementation workflow defined in `task_version_
 | 6. TelegramInputAdapter | 7 | ✅ |
 | 7. SSHAuthLogParser | 11 | ✅ |
 | 8. Flask Dashboard | 7 | ✅ |
-| **Total** | **74** | **✅** |
+| **V1 Total** | **74** | **✅** |
 
-All 8 services implemented, 74 tests pass, `mypy --strict` clean.
+### V2 — Platform Services
+
+| Service | Tests | Status |
+|---------|-------|--------|
+| 1. LogParserPlugin + ParserRegistry | 11 | ✅ |
+| 2. SSHAuthPlugin migration | 17 | ✅ |
+| 3. GeoIPEnricher + MaxMind adapter | — | Pending |
+| 4. AlertChannel + Telegram migration | — | Pending |
+| 5. Template engine + sandboxing | — | Pending |
+| 6. MetricsCollector + /metrics | — | Pending |
+| 7. API v2 auth + RBAC | — | Pending |
+| 8. Attack Map component | — | Pending |
+| **V2 Total** | **28** | 🔄 In progress |
+
+### Grand Total: **102 tests passing**, `mypy --strict` clean
+
+All 8 V1 services complete. V2: plugin system + SSH plugin verified.
