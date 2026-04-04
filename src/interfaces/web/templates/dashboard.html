@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LogSentinel Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header>
+        <h1>🛡️ LogSentinel</h1>
+        <p class="subtitle">Real-time server security monitor</p>
+    </header>
+
+    <main>
+        <section class="stats">
+            <div class="stat-card">
+                <span class="stat-value">{{ total_count }}</span>
+                <span class="stat-label">Total Alerts</span>
+            </div>
+            <div class="stat-card active">
+                <span class="stat-value">{{ active_count }}</span>
+                <span class="stat-label">Active</span>
+            </div>
+            <div class="stat-card blocked">
+                <span class="stat-value">{{ blocked_count }}</span>
+                <span class="stat-label">Blocked</span>
+            </div>
+        </section>
+
+        <section class="alerts">
+            <h2>Recent Alerts</h2>
+            {% if alerts %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>IP</th>
+                        <th>Attempts</th>
+                        <th>Service</th>
+                        <th>Last Seen</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for alert in alerts %}
+                    <tr>
+                        <td><code>{{ alert.ip }}</code></td>
+                        <td>{{ alert.attempts }}</td>
+                        <td>{{ alert.service }}</td>
+                        <td>{{ alert.last_seen.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                        <td>
+                            {% if alert.blocked %}
+                            <span class="badge blocked">Blocked</span>
+                            {% else %}
+                            <span class="badge active">Active</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="empty-state">No alerts yet. Waiting for activity…</p>
+            {% endif %}
+        </section>
+    </main>
+
+    <footer>
+        <p>LogSentinel &mdash; <a href="/api/alerts">API</a> &middot; <a href="/api/blocked">Blocked IPs</a></p>
+    </footer>
+
+    <script>
+        // Simple polling for live updates (V1)
+        setInterval(() => {
+            fetch('/api/alerts')
+                .then(r => r.json())
+                .then(data => {
+                    // Update stats
+                    const active = data.filter(a => !a.blocked).length;
+                    const blocked = data.filter(a => a.blocked).length;
+                    document.querySelector('.stat-card:nth-child(1) .stat-value').textContent = data.length;
+                    document.querySelector('.stat-card:nth-child(2) .stat-value').textContent = active;
+                    document.querySelector('.stat-card:nth-child(3) .stat-value').textContent = blocked;
+                });
+        }, 10000);
+    </script>
+</body>
+</html>
