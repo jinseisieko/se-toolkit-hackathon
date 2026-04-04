@@ -320,7 +320,7 @@ Tracks progress through the V1 and V2 implementation workflows.
 | 8. Attack Map component | — | Pending |
 | **V2 Total** | **70** | 🔄 In progress |
 
-### Grand Total: **148 tests passing**, `flake8` clean
+### Grand Total: **152 tests passing**, `flake8` clean
 
 ### Deployment
 

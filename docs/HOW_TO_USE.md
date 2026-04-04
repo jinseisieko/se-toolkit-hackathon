@@ -34,9 +34,11 @@ docker compose restart
 Navigate to **http://\<VM_IP\>:5000** in your browser.
 
 You'll see:
-- **API Token input** — Enter your `API_TOKEN` here and click Save (persisted in browser localStorage)
+- **API Token input** — Enter your `API_TOKEN` here and click Save
+  (token is obfuscated in browser storage for casual protection)
 - **Stats cards** — Total alerts, Active, Blocked
-- **Alerts table** — IP, attempts, service, time, status badge, **Block/Unblock button** per row
+- **Alerts table** — IP (colored green=active / red=blocked), attempts,
+  service, time, **Block/Unblock button** per row
 - **Blocked IPs section** — Dedicated table of blocked IPs with Unblock buttons
 - **Live polling** — updates every 10 seconds
 

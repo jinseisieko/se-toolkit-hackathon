@@ -77,11 +77,15 @@ curl -X POST http://localhost:5000/api/unblock \
 
 ## Dashboard Features
 
-- **API Token input:** Password field with localStorage persistence; required for block/unblock actions.
+- **API Token input:** Password field with obfuscated `localStorage` persistence
+  (XOR+base64); required for block/unblock actions.
 - **Stats cards:** Total alerts, active count, blocked count.
-- **Alerts table:** IP, attempts, service, last seen, status badge, and **Block/Unblock button** per row.
+- **Alerts table:** IP (colored green=active / red=blocked), attempts, service,
+  last seen, and **Block/Unblock button** per row. No Status column — IP color
+  indicates the state directly.
 - **Blocked IPs section:** Dedicated table of blocked IPs with Unblock buttons.
-- **Live polling:** JavaScript polls `/api/alerts` and `/api/blocked` every 10 seconds to update stats and tables.
+- **Live polling:** JavaScript polls `/api/alerts` and `/api/blocked` every 10
+  seconds to update stats and tables.
 - **Toast notifications:** Success/error toasts appear on block/unblock actions.
 - **Empty state:** Shows "No alerts yet. Waiting for activity…" when the DB is empty.
 - **Dark theme:** Uses CSS custom properties for easy theming.

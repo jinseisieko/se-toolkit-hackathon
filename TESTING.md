@@ -23,7 +23,7 @@ pytest tests/unit/ -q && mypy src/ --strict
 
 Expected output:
 ```
-148 passed in 0.XXs
+152 passed in 0.XXs
 Success: no issues found in 40+ source files
 ```
 
@@ -35,7 +35,7 @@ Success: no issues found in 40+ source files
 pytest tests/unit/ -v
 ```
 
-This runs **148 tests** across 15 test files:
+This runs **152 tests** across 15 test files:
 
 ### Core Services (V1)
 
