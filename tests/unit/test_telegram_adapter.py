@@ -50,7 +50,6 @@ def mock_handler() -> MagicMock:
 
 
 class TestTelegramInputAdapterHappyPath:
-    @pytest.mark.asyncio
     async def test_authorized_chat_forwards_to_handler(
         self,
         mock_handler: MagicMock,
@@ -72,7 +71,6 @@ class TestTelegramInputAdapterHappyPath:
         assert call_args[1] == []
         assert isinstance(call_args[2], CommandContext)
 
-    @pytest.mark.asyncio
     async def test_handler_result_replied_to_user(
         self,
         mock_handler: MagicMock,
@@ -100,7 +98,6 @@ class TestTelegramInputAdapterHappyPath:
 
 
 class TestTelegramInputAdapterEdgeCases:
-    @pytest.mark.asyncio
     async def test_unauthorized_chat_ignored_and_logged(
         self, caplog: pytest.LogCaptureFixture
     ) -> None:
@@ -120,7 +117,6 @@ class TestTelegramInputAdapterEdgeCases:
         assert any("Unauthorized" in r.message for r in caplog.records)
         update.message.reply_text.assert_not_called()
 
-    @pytest.mark.asyncio
     async def test_non_text_message_ignored(
         self, mock_handler: MagicMock
     ) -> None:
@@ -139,7 +135,6 @@ class TestTelegramInputAdapterEdgeCases:
 
         mock_handler.handle.assert_not_called()
 
-    @pytest.mark.asyncio
     async def test_start_command_sends_welcome(self) -> None:
         adapter = TelegramInputAdapter(
             token="test:token",
@@ -156,7 +151,6 @@ class TestTelegramInputAdapterEdgeCases:
         call_arg = str(update.message.reply_text.call_args[0][0])
         assert "Welcome" in call_arg
 
-    @pytest.mark.asyncio
     async def test_handler_failure_returns_error(
         self, mock_handler: MagicMock
     ) -> None:
