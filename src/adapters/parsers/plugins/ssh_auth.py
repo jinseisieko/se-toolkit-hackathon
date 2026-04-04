@@ -21,6 +21,7 @@ from src.core.plugins.parser_plugin import (
     ParsedEntry,
     Severity,
 )
+from src.utils.validation import validate_log_path
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +58,7 @@ class SSHAuthPlugin(LogParserPlugin):
     def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
         super().__init__(config)
         raw_path = self._config.get("log_path", "/var/log/auth.log")
-        self._log_path: str = str(raw_path)
+        self._log_path: str = validate_log_path(str(raw_path))
 
     @property
     def name(self) -> str:

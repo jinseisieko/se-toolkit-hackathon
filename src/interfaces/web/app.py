@@ -18,6 +18,7 @@ from typing import Any, Dict, Optional, TYPE_CHECKING
 from flask import Flask, jsonify, render_template, request
 
 from src.core.repositories import Alert
+from src.utils.validation import validate_ip
 
 if TYPE_CHECKING:
     from src.core.repositories import PeeweeAlertRepository
@@ -124,7 +125,15 @@ def create_app(
             if not ip:
                 return jsonify({"error": "Missing 'ip' in request body"}), 400
 
+            try:
+                ip = validate_ip(ip)
+            except Exception:
+                return jsonify({"error": "Invalid IP address"}), 400
+
             reason = data.get("reason", "manual block via dashboard")
+            if len(reason) > 255:
+                reason = reason[:255]
+
             alert_repo.mark_ip_blocked(ip)
             return jsonify({
                 "ip": ip,
@@ -141,6 +150,11 @@ def create_app(
             ip = data.get("ip", "")
             if not ip:
                 return jsonify({"error": "Missing 'ip' in request body"}), 400
+
+            try:
+                ip = validate_ip(ip)
+            except Exception:
+                return jsonify({"error": "Invalid IP address"}), 400
 
             alert_repo.mark_ip_unblocked(ip)
             return jsonify({

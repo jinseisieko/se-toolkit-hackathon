@@ -104,3 +104,49 @@ class TestPublicEndpoints:
     def test_blocked_api_no_auth_required(self, client) -> None:
         resp = client.get("/api/blocked")
         assert resp.status_code == 200
+
+
+class TestBlockIPValidation:
+    def test_block_rejects_invalid_ip(self, client) -> None:
+        resp = client.post(
+            "/api/block",
+            json={"ip": "not-an-ip"},
+            headers={"Authorization": "Bearer test-secret-token"},
+        )
+        assert resp.status_code == 400
+        assert "Invalid IP" in resp.get_json()["error"]
+
+    def test_block_rejects_command_injection(self, client) -> None:
+        resp = client.post(
+            "/api/block",
+            json={"ip": "1.2.3.4; rm -rf /"},
+            headers={"Authorization": "Bearer test-secret-token"},
+        )
+        assert resp.status_code == 400
+
+    def test_block_rejects_empty_ip(self, client) -> None:
+        resp = client.post(
+            "/api/block",
+            json={"ip": ""},
+            headers={"Authorization": "Bearer test-secret-token"},
+        )
+        assert resp.status_code == 400
+
+    def test_unblock_rejects_invalid_ip(self, client) -> None:
+        resp = client.post(
+            "/api/unblock",
+            json={"ip": ";;;malicious;;;"},
+            headers={"Authorization": "Bearer test-secret-token"},
+        )
+        assert resp.status_code == 400
+
+    def test_block_truncates_long_reason(self, client) -> None:
+        long_reason = "x" * 500
+        resp = client.post(
+            "/api/block",
+            json={"ip": "1.2.3.4", "reason": long_reason},
+            headers={"Authorization": "Bearer test-secret-token"},
+        )
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert len(data["reason"]) <= 255
