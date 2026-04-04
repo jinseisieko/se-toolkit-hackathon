@@ -112,10 +112,20 @@ class PeeweeAlertRepository(AlertRepository):
 
     def mark_ip_blocked(self, ip: str) -> None:
         from src.infrastructure.models import Alert as AlertModel
+        from datetime import datetime, timezone
 
-        AlertModel.update(blocked=True).where(
+        updated = AlertModel.update(blocked=True).where(
             AlertModel.ip == ip
         ).execute()
+
+        # If no existing alert for this IP, create one
+        if updated == 0:
+            AlertModel.create(
+                ip=ip,
+                attempts=0,
+                service="manual",
+                blocked=True,
+            )
 
     def mark_ip_unblocked(self, ip: str) -> None:
         from src.infrastructure.models import Alert as AlertModel
