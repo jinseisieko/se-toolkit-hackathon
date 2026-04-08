@@ -13,7 +13,7 @@ from src.infrastructure.db import init_database
 from src.infrastructure.models import Alert, BlockedIP
 
 
-def delete_all_alerts(db_path: str = "data/sentinel.db"):
+def delete_all_alerts(db_path: str = "data/sentinel.db", force: bool = False):
     """Delete all alerts and blocked IPs from the database."""
     db_path_obj = Path(db_path)
     
@@ -34,11 +34,11 @@ def delete_all_alerts(db_path: str = "data/sentinel.db"):
         print("Nothing to delete.")
         return
     
-    # Confirm deletion
-    confirm = input("Delete all alerts and blocked IP records? [y/N]: ").strip().lower()
-    if confirm != "y":
-        print("Aborted.")
-        return
+    if not force:
+        confirm = input("Delete all alerts and blocked IP records? [y/N]: ").strip().lower()
+        if confirm != "y":
+            print("Aborted.")
+            return
     
     # Delete records
     with db.atomic():
@@ -50,5 +50,9 @@ def delete_all_alerts(db_path: str = "data/sentinel.db"):
 
 
 if __name__ == "__main__":
-    db_path = sys.argv[1] if len(sys.argv) > 1 else "data/sentinel.db"
-    delete_all_alerts(db_path)
+    import argparse
+    parser = argparse.ArgumentParser(description="Delete all alerts from LogSentinel database")
+    parser.add_argument("db_path", nargs="?", default="data/sentinel.db", help="Path to SQLite database")
+    parser.add_argument("-y", "--yes", action="store_true", help="Skip confirmation prompt")
+    args = parser.parse_args()
+    delete_all_alerts(args.db_path, force=args.yes)
