@@ -56,6 +56,10 @@ class SSHAuthPlugin(LogParserPlugin):
     _TIMESTAMP_PATTERN = re.compile(
         r"^([A-Z][a-z]{2}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2})"
     )
+    _ISO_TIMESTAMP_PATTERN = re.compile(
+        r"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+\-]\d{2}:\d{2}))"
+    )
+    _REPEAT_PATTERN = re.compile(r"message\s+repeated\s+(\d+)\s+times")
 
     def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
         super().__init__(config)
@@ -88,6 +92,14 @@ class SSHAuthPlugin(LogParserPlugin):
         if not match:
             return None
 
+        repeat_count = 1
+        repeat_match = self._REPEAT_PATTERN.search(stripped)
+        if repeat_match:
+            try:
+                repeat_count = max(1, int(repeat_match.group(1)))
+            except ValueError:
+                repeat_count = 1
+
         auth_type = match.group(1)
         user = match.group(2)
         ip_raw = match.group(3)
@@ -107,6 +119,7 @@ class SSHAuthPlugin(LogParserPlugin):
             "auth_type": auth_type,
             "port": port,
             "ip_type": ip_type,
+            "repeat_count": repeat_count,
         }
 
         # For V1 compatibility, also store the raw IPv4/IPv6 string
@@ -177,6 +190,17 @@ class SSHAuthPlugin(LogParserPlugin):
             A timezone-aware datetime.
         """
         match = SSHAuthPlugin._TIMESTAMP_PATTERN.search(line)
+        if not match:
+            iso_match = SSHAuthPlugin._ISO_TIMESTAMP_PATTERN.search(line)
+            if iso_match:
+                ts_iso = iso_match.group(1)
+                try:
+                    return datetime.fromisoformat(ts_iso.replace("Z", "+00:00"))
+                except ValueError:
+                    logger.debug(
+                        "Failed to parse ISO timestamp %r, using current time",
+                        ts_iso,
+                    )
         if not match:
             logger.debug(
                 "No timestamp found in line, using current time: %r",

@@ -289,7 +289,12 @@ class Worker:
 
         def on_entry(entry: ParsedEntry) -> None:
             start = time.monotonic()
-            detector.record_attempt(str(entry.ip), entry.timestamp)
+            repeat_count = entry.meta.get("repeat_count", 1)
+            if not isinstance(repeat_count, int) or repeat_count < 1:
+                repeat_count = 1
+
+            for _ in range(repeat_count):
+                detector.record_attempt(str(entry.ip), entry.timestamp)
             duration = time.monotonic() - start
             metrics.observe_processing_time(parser.name, duration)
 

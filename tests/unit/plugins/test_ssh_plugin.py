@@ -142,6 +142,19 @@ class TestSSHAuthPluginEdgeCases:
         line = "Apr  4 12:00:01 server sshd[12345]: Disconnected from user root 192.0.2.1 port 22"
         assert plugin.parse_line(line) is None
 
+    def test_repeated_failed_password_counts_repeat(self, plugin: SSHAuthPlugin) -> None:
+        line = (
+            "2026-04-08T16:43:19.043255+03:00 setoolkitvm001 sshd[317936]: "
+            "message repeated 2 times: "
+            "[ Failed password for root from 10.241.1.119 port 64023 ssh2]"
+        )
+        result = plugin.parse_line(line)
+
+        assert result is not None
+        assert result.ip == IPv4Address("10.241.1.119")
+        assert result.event_type == "failed_auth"
+        assert result.meta.get("repeat_count") == 2
+
 
 # ── Registry integration ──────────────────────────────────────
 
