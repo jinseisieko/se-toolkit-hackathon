@@ -36,6 +36,17 @@ class AlertRepository(ABC):
         ...
 
     @abstractmethod
+    def upsert_breach(
+        self,
+        ip: str,
+        attempts: int,
+        service: str,
+        seen_at: datetime,
+    ) -> Alert:
+        """Create or update an alert row for a breached IP."""
+        ...
+
+    @abstractmethod
     def get_recent(self, limit: int = 50) -> Sequence[Alert]:
         """Return the most recent alerts, newest first."""
         ...
@@ -80,6 +91,38 @@ class PeeweeAlertRepository(AlertRepository):
             service=service,
         )
         return self._to_entity(record)
+
+    def upsert_breach(
+        self,
+        ip: str,
+        attempts: int,
+        service: str,
+        seen_at: datetime,
+    ) -> Alert:
+        from src.infrastructure.models import Alert as AlertModel
+
+        existing = (
+            AlertModel.select()
+            .where(AlertModel.ip == ip)
+            .order_by(AlertModel.last_seen.desc())
+            .first()
+        )
+        if existing is None:
+            return self._to_entity(
+                AlertModel.create(
+                    ip=ip,
+                    attempts=attempts,
+                    service=service,
+                    first_seen=seen_at,
+                    last_seen=seen_at,
+                )
+            )
+
+        existing.attempts = existing.attempts + attempts
+        existing.service = service
+        existing.last_seen = seen_at
+        existing.save()
+        return self._to_entity(existing)
 
     def get_recent(self, limit: int = 50) -> Sequence[Alert]:
         from src.infrastructure.models import Alert as AlertModel

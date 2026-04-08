@@ -226,10 +226,11 @@ class Worker:
             )
 
             # Persist to database
-            alert = alert_repo.create(
+            alert = alert_repo.upsert_breach(
                 ip=event.ip,
                 attempts=event.attempt_count,
                 service=event.service,
+                seen_at=event.timestamp,
             )
 
             # Block

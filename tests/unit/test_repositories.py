@@ -9,6 +9,8 @@ Covers:
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+
 import pytest
 from peewee import SqliteDatabase
 
@@ -70,6 +72,46 @@ class TestPeeweeAlertRepositoryHappyPath:
         fetched = repo.get_by_id(alert.id)
         assert fetched is not None
         assert fetched.blocked is True
+
+    def test_upsert_breach_creates_new_row_for_new_ip(
+        self, repo: PeeweeAlertRepository
+    ) -> None:
+        ts = datetime(2026, 4, 8, 13, 0, 0, tzinfo=timezone.utc)
+        alert = repo.upsert_breach(
+            ip="198.51.100.1",
+            attempts=5,
+            service="ssh",
+            seen_at=ts,
+        )
+
+        assert alert.ip == "198.51.100.1"
+        assert alert.attempts == 5
+        assert alert.last_seen == ts
+        assert len(repo.get_recent()) == 1
+
+    def test_upsert_breach_updates_existing_row_for_same_ip(
+        self, repo: PeeweeAlertRepository
+    ) -> None:
+        first_ts = datetime(2026, 4, 8, 13, 0, 0, tzinfo=timezone.utc)
+        second_ts = first_ts + timedelta(minutes=2)
+
+        first = repo.upsert_breach(
+            ip="198.51.100.2",
+            attempts=5,
+            service="ssh",
+            seen_at=first_ts,
+        )
+        second = repo.upsert_breach(
+            ip="198.51.100.2",
+            attempts=5,
+            service="ssh",
+            seen_at=second_ts,
+        )
+
+        assert first.id == second.id
+        assert second.attempts == 10
+        assert second.last_seen == second_ts
+        assert len(repo.get_recent()) == 1
 
 
 # ── Edge cases ────────────────────────────────────────────────
