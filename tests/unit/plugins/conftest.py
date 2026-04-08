@@ -5,7 +5,8 @@ from __future__ import annotations
 import re
 from datetime import datetime, timezone
 from ipaddress import IPv4Address
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
+import threading
 
 import pytest
 
@@ -76,6 +77,14 @@ class MockPlugin(LogParserPlugin):
             )
         ]
 
+    def process_stream(
+        self,
+        file_path: str,
+        callback: Callable[[ParsedEntry], None],
+        stop_event: Optional[threading.Event] = None,
+    ) -> None:
+        return None
+
 
 class FailingPlugin(LogParserPlugin):
     """A plugin whose __init__ raises an error."""
@@ -96,3 +105,11 @@ class FailingPlugin(LogParserPlugin):
 
     def get_indicators(self) -> List[DetectionRule]:
         return []
+
+    def process_stream(
+        self,
+        file_path: str,
+        callback: Callable[[ParsedEntry], None],
+        stop_event: Optional[threading.Event] = None,
+    ) -> None:
+        return None

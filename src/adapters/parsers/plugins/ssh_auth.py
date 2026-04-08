@@ -10,7 +10,9 @@ from __future__ import annotations
 import ipaddress
 import logging
 import re
+import select
 import subprocess
+import threading
 from datetime import datetime, timezone
 from ipaddress import IPv4Address, IPv6Address
 from typing import Any, Callable, Dict, List, Optional
@@ -197,6 +199,7 @@ class SSHAuthPlugin(LogParserPlugin):
         self,
         file_path: str,
         callback: Callable[[ParsedEntry], None],
+        stop_event: Optional[threading.Event] = None,
     ) -> None:
         """Tail a log file and call *callback* for each parsed entry.
 
@@ -205,6 +208,7 @@ class SSHAuthPlugin(LogParserPlugin):
         Args:
             file_path: Path to the log file to monitor.
             callback: Called with each ``ParsedEntry`` that matches.
+            stop_event: Optional event used for graceful shutdown.
         """
         logger.info("Starting log tail of %s", file_path)
         try:
@@ -220,7 +224,22 @@ class SSHAuthPlugin(LogParserPlugin):
 
         assert proc.stdout is not None
         try:
-            for raw_line in proc.stdout:
+            while True:
+                if stop_event is not None and stop_event.is_set():
+                    logger.info("Stop event received for %s", file_path)
+                    break
+
+                if proc.poll() is not None:
+                    break
+
+                ready, _, _ = select.select([proc.stdout], [], [], 1.0)
+                if not ready:
+                    continue
+
+                raw_line = proc.stdout.readline()
+                if not raw_line:
+                    continue
+
                 entry = self.parse_line(raw_line)
                 if entry is not None:
                     callback(entry)
@@ -228,5 +247,9 @@ class SSHAuthPlugin(LogParserPlugin):
             logger.info("Log tail interrupted")
         finally:
             proc.terminate()
-            proc.wait(timeout=5)
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait(timeout=5)
             logger.info("Log tail stopped for %s", file_path)

@@ -11,7 +11,8 @@ Covers:
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
+import threading
 
 import pytest
 
@@ -80,6 +81,14 @@ class TestParserRegistryHappyPath:
 
             def get_indicators(self) -> List[DetectionRule]:
                 return []
+
+            def process_stream(
+                self,
+                file_path: str,
+                callback: Callable[[ParsedEntry], None],
+                stop_event: Optional[threading.Event] = None,
+            ) -> None:
+                return None
 
         registry.register("config_plugin", ConfigPlugin)
         plugin = registry.create(

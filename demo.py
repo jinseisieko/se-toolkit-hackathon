@@ -143,12 +143,19 @@ def main() -> None:
     # ── Wire: event → persist → block → enrich → alert ───────
 
     def on_event(event: SecurityEvent) -> None:
-        alert_repo.create(
+        alert = alert_repo.create(
             ip=event.ip,
             attempts=event.attempt_count,
             service=event.service,
         )
-        block_svc.handle_event(event)
+        block_result = block_svc.handle_event(event)
+        if block_result and alert.id is not None:
+            alert_repo.mark_blocked(alert.id)
+            metrics.record_block(
+                event.ip,
+                strategy.__class__.__name__,
+                f"{event.service} brute-force: {event.attempt_count}",
+            )
 
         # Enrich and alert
         ip_obj = IPv4Address(event.ip)

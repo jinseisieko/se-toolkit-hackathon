@@ -145,7 +145,9 @@ class TelegramBot:
         """Send a message to all authorized chats."""
         if not self._app or not self._app.bot:
             return
-        chats = self._authorized_chats or {TEST_CHAT_ID} if TEST_CHAT_ID else set()
+        chats = self._authorized_chats or (
+            {TEST_CHAT_ID} if TEST_CHAT_ID else set()
+        )
         for chat_id in chats:
             try:
                 await self._app.bot.send_message(

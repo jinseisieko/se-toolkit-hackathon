@@ -170,7 +170,7 @@ class Worker:
         def _flush_metrics_loop() -> None:
             """Write metrics to shared file every 10 seconds."""
             import time as _time
-            while True:
+            while not self._shutdown.is_set():
                 _time.sleep(10)
                 try:
                     with open(metrics_path, "w") as f:
@@ -226,22 +226,27 @@ class Worker:
             )
 
             # Persist to database
-            alert_repo.create(
+            alert = alert_repo.create(
                 ip=event.ip,
                 attempts=event.attempt_count,
                 service=event.service,
             )
 
             # Block
-            block_svc.handle_event(event)
-            metrics.record_block(
-                event.ip,
-                strategy.__class__.__name__,
-                (
-                    f"{event.service} brute-force: "
-                    f"{event.attempt_count}"
-                ),
-            )
+            block_result = block_svc.handle_event(event)
+            if block_result:
+                if alert.id is not None:
+                    alert_repo.mark_blocked(alert.id)
+                metrics.record_block(
+                    event.ip,
+                    strategy.__class__.__name__,
+                    (
+                        f"{event.service} brute-force: "
+                        f"{event.attempt_count}"
+                    ),
+                )
+            else:
+                logger.error("Failed to block %s after breach event", event.ip)
 
             # Enrich
             try:
@@ -294,7 +299,11 @@ class Worker:
         )
 
         try:
-            parser.process_stream(self.config.log_path, callback=on_entry)
+            parser.process_stream(
+                self.config.log_path,
+                callback=on_entry,
+                stop_event=self._shutdown,
+            )
         except Exception as exc:
             logger.error("Log parser error: %s", exc)
 

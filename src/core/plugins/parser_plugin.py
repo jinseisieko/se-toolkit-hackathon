@@ -12,7 +12,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from ipaddress import IPv4Address, IPv6Address
-from typing import Any, Dict, List, Optional
+import threading
+from typing import Any, Callable, Dict, List, Optional
 
 
 class Severity(str, Enum):
@@ -118,6 +119,21 @@ class LogParserPlugin(ABC):
             A list of ``DetectionRule`` instances.
         """
         return []
+
+    @abstractmethod
+    def process_stream(
+        self,
+        file_path: str,
+        callback: Callable[[ParsedEntry], None],
+        stop_event: Optional[threading.Event] = None,
+    ) -> None:
+        """Tail and parse entries from *file_path* until stopped.
+
+        Args:
+            file_path: Path to the log file to monitor.
+            callback: Called for each successfully parsed entry.
+            stop_event: Optional cooperative shutdown signal.
+        """
 
 
 class PluginAlreadyRegisteredError(Exception):
