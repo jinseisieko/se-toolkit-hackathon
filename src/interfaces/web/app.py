@@ -23,6 +23,7 @@ from src.utils.validation import validate_ip
 
 if TYPE_CHECKING:
     from src.core.repositories import PeeweeAlertRepository
+    from src.core.services.block_service import BlockService
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +70,9 @@ def _require_auth(api_token: str):
                 referer = request.headers.get("Referer", "")
                 host = request.host
                 if origin and host not in origin and host not in referer:
-                    return jsonify({"error": "Cross-origin request rejected"}), 403
+                    return jsonify(
+                        {"error": "Cross-origin request rejected"}
+                    ), 403
 
             return f(*args, **kwargs)
         return wrapper
@@ -79,6 +82,7 @@ def _require_auth(api_token: str):
 def create_app(
     alert_repo: "PeeweeAlertRepository",
     api_token: Optional[str] = None,
+    block_service: Optional["BlockService"] = None,
 ) -> Flask:
     """Create and configure a Flask application.
 
@@ -86,6 +90,9 @@ def create_app(
         alert_repo: The AlertRepository instance for querying data.
         api_token: Token for authenticating write operations.
             If None, block/unblock endpoints are disabled.
+        block_service: Optional BlockService for firewall operations.
+            If provided, block/unblock endpoints call the firewall.
+            If None, only the database flag is updated.
 
     Returns:
         A configured Flask application.
@@ -151,6 +158,8 @@ def create_app(
             if len(reason) > 255:
                 reason = reason[:255]
 
+            if block_service is not None:
+                block_service.block_ip(ip, reason)
             alert_repo.mark_ip_blocked(ip)
             return jsonify({
                 "ip": ip,
@@ -178,6 +187,8 @@ def create_app(
             except Exception:
                 return jsonify({"error": "Invalid IP address"}), 400
 
+            if block_service is not None:
+                block_service.unblock_ip(ip)
             alert_repo.mark_ip_unblocked(ip)
             return jsonify({
                 "ip": ip,
