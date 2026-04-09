@@ -101,10 +101,9 @@
     {# Blocked IPs data — safe: rendered server-side from DB, auto-escaped by Jinja2 #}
     <script id="blocked-init" type="application/json">
     [
-    {% for alert in alerts %}
-    {% if alert.blocked %}
-        {"ip": {{ alert.ip | tojson }}, "attempts": {{ alert.attempts }}, "service": {{ alert.service | tojson }}},
-    {% endif %}
+    {% set blocked_alerts = alerts | selectattr('blocked') | list %}
+    {% for alert in blocked_alerts %}
+        {"ip": {{ alert.ip | tojson }}, "attempts": {{ alert.attempts }}, "service": {{ alert.service | tojson }}}{% if not loop.last %},{% endif %}
     {% endfor %}
     ]
     </script>
