@@ -20,7 +20,7 @@ Edit `.env` and set a secret token:
 API_TOKEN=your-secret-token-here
 ```
 
-This token is required to block/unblock IPs via the API. Without it, those endpoints return `404`.
+This token is required to block/unblock IPs via the API. Without it, those endpoints are disabled (routes not registered).
 
 Restart after changing:
 ```bash
@@ -50,7 +50,7 @@ You'll see:
 2. Enter your API token in the top input field and click **Save**
 3. Find the IP in the alerts table and click the **Block** button
 4. A green toast notification confirms the action
-5. The page auto-refreshes — the IP now shows as **Blocked**
+5. The page updates via AJAX — the IP now shows as **Blocked**
 
 ## 4b. Block an IP (via API)
 
@@ -72,7 +72,7 @@ Response:
 
 1. Click the **Unblock** button next to any blocked IP in the alerts table or Blocked IPs section
 2. A green toast confirms the action
-3. The page auto-refreshes — the IP now shows as **Active**
+3. The page updates via AJAX — the IP now shows as **Active**
 
 ## 5b. Unblock an IP (via API)
 
@@ -132,7 +132,7 @@ Scrape this endpoint with Prometheus or check manually.
 ## 8. View Container Logs
 
 ```bash
-docker logs logsentinel -f
+docker logs logsentinel-worker -f
 ```
 
 You'll see real-time detection events:
