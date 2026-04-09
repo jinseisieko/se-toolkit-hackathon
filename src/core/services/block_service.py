@@ -118,7 +118,14 @@ class BlockService:
         if not self._strategy.block(ip, reason):
             return False
 
-        self._repo.create(ip=ip, reason=reason, strategy=self._strategy.__class__.__name__)
+        existing = self._repo.get_by_ip(ip)
+        if existing is not None:
+            # Already exists — just re-mark as blocked (idempotent)
+            return self._repo.mark_blocked(existing.id)
+
+        self._repo.create(
+            ip=ip, reason=reason, strategy=self._strategy.__class__.__name__,
+        )
         return True
 
     def unblock_ip(self, ip: str) -> bool:
